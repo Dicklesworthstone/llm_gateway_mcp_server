@@ -261,8 +261,11 @@ Process documents and data efficiently:
 -   **Performance Profiles**: Generate comparative reports based on real-world performance.
 -   **Data-Driven Optimization**: Use benchmark data to inform routing decisions.
 
-### 📡 Server-Sent Events (SSE) Support
--   **Real-time Streaming**: Token-by-token updates for LLM completions.
+### 📡 Multiple Transport Modes
+-   **Streamable-HTTP (Recommended)**: Modern HTTP transport with streaming request/response bodies, optimal for HTTP-based MCP clients.
+-   **Server-Sent Events (SSE)**: Legacy HTTP transport using server-sent events for real-time streaming.
+-   **Standard I/O (stdio)**: Direct process communication for embedded integrations.
+-   **Real-time Streaming**: Token-by-token updates for LLM completions across all HTTP transports.
 -   **Progress Monitoring**: Track progress of long-running jobs (chunking, batch processing).
 -   **Event-Based Architecture**: Subscribe to specific server events.
 
@@ -429,6 +432,9 @@ umcp run -d
 # Use stdio transport (-t)
 umcp run -t stdio
 
+# Use streamable-http transport (recommended for HTTP clients)
+umcp run -t shttp
+
 # Run only with specific tools (no shortcut for --include-tools)
 umcp run --include-tools completion chunk_document read_file write_file
 
@@ -442,7 +448,7 @@ Example output:
 │ Host: 0.0.0.0                                    │
 │ Port: 9000                                       │
 │ Workers: 4                                       │
-│ Transport mode: sse                              │
+│ Transport mode: streamable-http                  │
 └────────────────────────────────────────────────┘
 
 INFO:     Started server process [12345]
@@ -455,7 +461,7 @@ Available options:
 - `-h, --host`: Host or IP address to bind the server to (default: from .env)
 - `-p, --port`: Port to listen on (default: from .env)
 - `-w, --workers`: Number of worker processes to spawn (default: from .env)
-- `-t, --transport-mode`: Transport mode for server communication ('sse' or 'stdio', default: sse)
+- `-t, --transport-mode`: Transport mode for server communication ('shttp' for streamable-http, 'sse', or 'stdio', default: shttp)
 - `-d, --debug`: Enable debug logging
 - `--include-tools`: List of tool names to include (comma-separated)
 - `--exclude-tools`: List of tool names to exclude (comma-separated)
@@ -801,9 +807,10 @@ Options:
   -p, --port INTEGER              Port to listen on. Defaults from config.
   -w, --workers INTEGER           Number of worker processes to spawn.
                                   Defaults from config.
-  -t, --transport-mode [sse|stdio]
+  -t, --transport-mode [shttp|sse|stdio]
                                   Transport mode for server communication (-t
-                                  shortcut). Options: 'sse' or 'stdio'.
+                                  shortcut). Options: 'shttp' (streamable-http, 
+                                  recommended), 'sse', or 'stdio'.
   -d, --debug                     Enable debug logging for detailed output (-d
                                   shortcut).
   --include-tools TEXT            List of tool names to include when running
@@ -2823,11 +2830,11 @@ Start the server using the CLI:
 # Start in default stdio mode
 umcp run
 
-# Start in SSE mode for web interfaces or remote clients
-umcp run --transport-mode sse
+# Start in streamable-http mode for web interfaces or remote clients (recommended)
+umcp run --transport-mode shttp
 # Or use the shortcut:
-umcp run -t sse
+umcp run -t shttp
 
-# Run on a specific host and port (SSE mode)
-umcp run -t sse --host 0.0.0.0 --port 8080
+# Run on a specific host and port (streamable-http mode)
+umcp run -t shttp --host 0.0.0.0 --port 8080
 ```
