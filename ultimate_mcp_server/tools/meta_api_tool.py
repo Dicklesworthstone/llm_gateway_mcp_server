@@ -1173,8 +1173,13 @@ if __name__ == "__main__":
         args = parser.parse_args()
 
         # Create MCP server
-        app = create_app()
-        mcp_server = app.state.mcp
+        create_app()
+        # In FastMCP 2.0+, access the MCP server directly from the Gateway instance
+        # The create_app() should return the gateway instance or we need to get it differently
+        from ultimate_mcp_server.core import _gateway_instance
+        mcp_server = _gateway_instance.mcp if _gateway_instance else None
+        if not mcp_server:
+            raise RuntimeError("Gateway instance not initialized or MCP server not available")
 
         # Register API Meta-Tool
         register_api_meta_tools(mcp_server)

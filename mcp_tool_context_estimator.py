@@ -15,14 +15,16 @@ import sys
 import traceback
 from typing import Any, Dict, List, Optional
 
+import aiohttp
 import tiktoken
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
 from rich.console import Console
 from rich.table import Table
 
 # Add the current directory to the Python path to ensure we can import modules
-sys.path.append("/home/ubuntu/ultimate_mcp_server")
+sys.path.append("/data/projects/ultimate_mcp_server")
 
 # Import the existing decouple configuration from the project
 from ultimate_mcp_server.config import decouple_config
@@ -57,30 +59,143 @@ def read_tool_names_from_file(filename='tools_list.json', quiet=False):
 RUN_LOAD_ALL_TOOLS_COMPARISON = True
 SHOW_DESCRIPTIONS = True
 
-def get_server_url() -> str:
+async def detect_server_transport(host: str, port: str, quiet: bool = False) -> tuple[str, str]:
     """
-    Get the MCP server URL from .env file or environment variables
+    Detect what transport mode the server is running and return the appropriate URL and transport type.
+    
+    Args:
+        host: Server hostname
+        port: Server port
+        quiet: If True, suppress detection messages
+        
+    Returns:
+        Tuple of (url, transport_type) where transport_type is 'sse', 'streamable-http', or 'stdio'
+    """
+    console = Console()
+    
+    if not quiet:
+        console.print(f"[blue]Detecting transport mode for server at {host}:{port}...[/blue]")
+    
+    # Test MCP protocol endpoints with proper requests
+    endpoints_to_try = [
+        (f"http://{host}:{port}/mcp/", "streamable-http"),
+        (f"http://{host}:{port}/sse", "sse"),
+        (f"http://{host}:{port}", "sse"),  # fallback for sse
+    ]
+    
+    # Create a simple MCP initialization message for testing
+    test_message = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "mcp-detector", "version": "1.0.0"}
+        }
+    }
+    
+    for url, transport in endpoints_to_try:
+        try:
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                if transport == "streamable-http":
+                    # Test streamable-http with POST + MCP message
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json, text/event-stream"
+                    }
+                    async with session.post(url, json=test_message, headers=headers) as response:
+                        if response.status == 200:
+                            # Check if response looks like MCP
+                            try:
+                                data = await response.text()
+                                if '"jsonrpc":"2.0"' in data or '"result"' in data:
+                                    if not quiet:
+                                        console.print(f"[green]Detected {transport} transport at {url}[/green]")
+                                    return url, transport
+                            except Exception:
+                                pass
+                        elif response.status in [400, 404, 405, 406]:
+                            # Server exists but doesn't support this transport
+                            if not quiet:
+                                console.print(f"[dim]Endpoint {url} returned {response.status}[/dim]")
+                            continue
+                else:
+                    # Test SSE endpoints - they might respond to GET or POST
+                    # Try GET first for SSE
+                    try:
+                        async with session.get(url) as response:
+                            if response.status == 200:
+                                content_type = response.headers.get('content-type', '').lower()
+                                if 'text/event-stream' in content_type:
+                                    if not quiet:
+                                        console.print(f"[green]Detected {transport} transport at {url}[/green]")
+                                    return url, transport
+                    except Exception:
+                        pass
+                    
+                    # If GET failed, try POST for SSE (some servers might expect it)
+                    try:
+                        async with session.post(url, json=test_message) as response:
+                            if response.status == 200:
+                                content_type = response.headers.get('content-type', '').lower()
+                                if 'text/event-stream' in content_type or 'application/json' in content_type:
+                                    if not quiet:
+                                        console.print(f"[green]Detected {transport} transport at {url}[/green]")
+                                    return url, transport
+                    except Exception:
+                        pass
+                        
+        except Exception as e:
+            if not quiet:
+                console.print(f"[dim]Could not connect to {url}: {str(e)}[/dim]")
+            continue
+    
+    # If HTTP detection fails, try to guess based on what we know
+    # Check if port 8013 responds at all
+    try:
+        timeout = aiohttp.ClientTimeout(total=2)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(f"http://{host}:{port}/") as response:
+                if response.status == 200:
+                    # Server is running, probably streamable-http since that's the new default
+                    default_url = f"http://{host}:{port}/mcp/"
+                    if not quiet:
+                        console.print(f"[yellow]Server detected but transport unclear, defaulting to streamable-http at {default_url}[/yellow]")
+                    return default_url, "streamable-http"
+    except Exception:
+        pass
+    
+    # Final fallback to SSE for backwards compatibility
+    fallback_url = f"http://{host}:{port}/sse"
+    if not quiet:
+        console.print(f"[yellow]Could not detect transport mode, defaulting to SSE at {fallback_url}[/yellow]")
+    return fallback_url, "sse"
+
+def get_server_url_and_transport() -> tuple[str, str]:
+    """
+    Get the MCP server URL and transport type from .env file or environment variables
     
     Returns:
-        The server URL to connect to
+        Tuple of (server_url, transport_type)
     """
     # Try to get from python-decouple (.env file)
     try:
         host = decouple_config('MCP_SERVER_HOST', default='localhost')
         port = decouple_config('MCP_SERVER_PORT', default='8013')
-        return f"http://{host}:{port}/sse"
+        
+        # Try to detect transport type - this will be resolved in the async context
+        return host, port
     except Exception:
         # Fallback to environment variables if decouple fails
-        if "MCP_SERVER_URL" in os.environ:
-            return os.environ["MCP_SERVER_URL"]
-        
         if "MCP_SERVER_HOST" in os.environ and "MCP_SERVER_PORT" in os.environ:
             host = os.environ["MCP_SERVER_HOST"]
             port = os.environ["MCP_SERVER_PORT"]
-            return f"http://{host}:{port}/sse"
+            return host, port
         
         # Default fallback
-        return "http://localhost:8013/sse"
+        return "localhost", "8013"
 
 # Calculate token counts for different models
 def count_tokens(text: str) -> int:
@@ -114,12 +229,12 @@ def format_capabilities(capabilities):
     
     return json.dumps(result, indent=2)
 
-async def get_mcp_server_tools(server_url: str, include_tools: Optional[List[str]] = None, console: Console = None, quiet: bool = False) -> Dict[str, Any]:
+async def get_mcp_server_tools_streamable_http(server_url: str, include_tools: Optional[List[str]] = None, console: Console = None, quiet: bool = False) -> Dict[str, Any]:
     """
-    Connect to an already running MCP server and fetch all registered tools.
+    Connect to an MCP server running in streamable-http mode and fetch all registered tools.
     
     Args:
-        server_url: The URL of the running MCP server
+        server_url: The URL of the running MCP server (should be http://host:port/mcp)
         include_tools: Optional list of tool names to include (if None, get all tools)
         console: Optional console for output
         quiet: If True, only show most important output
@@ -130,6 +245,381 @@ async def get_mcp_server_tools(server_url: str, include_tools: Optional[List[str
     if console is None:
         console = Console()
         
+    if not quiet:
+        console.print(f"[bold blue]Connecting to streamable-http MCP server at {server_url}...[/bold blue]")
+    
+    try:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            # First, try to initialize the MCP connection
+            init_data = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"roots": {"listChanged": True}},
+                    "clientInfo": {"name": "mcp-tool-context-estimator", "version": "1.0.0"}
+                }
+            }
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream"
+            }
+            
+            if not quiet:
+                console.print("[bold blue]Initializing MCP protocol via streamable-http...[/bold blue]")
+            
+            async with session.post(server_url, json=init_data, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception(f"Failed to initialize: HTTP {response.status}")
+                
+                # Capture session ID from response headers
+                session_id = response.headers.get('mcp-session-id')
+                if not session_id:
+                    raise Exception("No session ID returned from server")
+                
+                # Handle SSE-formatted response
+                response_text = await response.text()
+                if response.content_type == "text/event-stream":
+                    # Parse SSE format
+                    lines = response_text.strip().split('\n')
+                    json_data = None
+                    for line in lines:
+                        if line.startswith('data: '):
+                            json_data = line[6:]  # Remove 'data: ' prefix
+                            break
+                    if json_data:
+                        init_result = json.loads(json_data)
+                    else:
+                        raise Exception("No JSON data found in SSE response")
+                else:
+                    init_result = await response.json()
+                
+                if "error" in init_result:
+                    raise Exception(f"MCP initialization error: {init_result['error']}")
+                
+                if "result" not in init_result:
+                    raise Exception("Invalid MCP initialization response")
+                
+                result = init_result["result"]
+                server_info = result.get("serverInfo", {})
+                server_name = server_info.get("name", "Unknown Server")
+                server_version = server_info.get("version", "Unknown Version")
+                
+                if not quiet:
+                    console.print(f"[green]Connected to server:[/green] {server_name} v{server_version}")
+                
+                # Show server capabilities
+                capabilities = result.get("capabilities", {})
+                if not quiet:
+                    console.print("[bold blue]Server capabilities:[/bold blue]")
+                    console.print(json.dumps(capabilities, indent=2))
+                
+                # Check if tools capability is present
+                has_tools = capabilities.get("tools", False)
+                    
+                if not quiet and not has_tools:
+                    console.print("[bold yellow]Warning: This server does not advertise tools capability![/bold yellow]")
+                    console.print("The server might not support tool listing, but we'll try anyway.")
+                
+                # Get server instructions (from server info)
+                server_instructions = server_info.get("instructions", "")
+                if server_instructions and not quiet:
+                    console.print(f"[green]Server provides instructions of length {len(server_instructions):,} chars[/green]")
+                elif not quiet:
+                    console.print("[yellow]Server does not provide instructions[/yellow]")
+            
+            # Update headers to include session ID for subsequent requests
+            headers["mcp-session-id"] = session_id
+            
+            # Send initialized notification
+            init_notify_data = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized"
+            }
+            
+            async with session.post(server_url, json=init_notify_data, headers=headers) as response:
+                # This is a notification, so we don't expect a response
+                pass
+            
+            # Now list the tools
+            if not quiet:
+                console.print("[bold blue]Retrieving tool definitions...[/bold blue]")
+            
+            list_tools_data = {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list"
+            }
+            
+            async with session.post(server_url, json=list_tools_data, headers=headers) as response:
+                if response.status != 200:
+                    raise Exception(f"Failed to list tools: HTTP {response.status}")
+                
+                # Handle SSE-formatted response for tools list
+                response_text = await response.text()
+                if response.content_type == "text/event-stream":
+                    # Parse SSE format
+                    lines = response_text.strip().split('\n')
+                    json_data = None
+                    for line in lines:
+                        if line.startswith('data: '):
+                            json_data = line[6:]  # Remove 'data: ' prefix
+                            break
+                    if json_data:
+                        tools_result = json.loads(json_data)
+                    else:
+                        raise Exception("No JSON data found in SSE response")
+                else:
+                    tools_result = await response.json()
+                
+                if "error" in tools_result:
+                    raise Exception(f"MCP tools/list error: {tools_result['error']}")
+                
+                if "result" not in tools_result:
+                    raise Exception("Invalid MCP tools/list response")
+                
+                tools_data = tools_result["result"]
+                tools = tools_data.get("tools", [])
+                
+                # Count tools
+                tool_count = len(tools) if tools else 0
+                if not quiet:
+                    console.print(f"[green]Found {tool_count} tools[/green]")
+                
+                if tool_count == 0:
+                    console.print("[bold yellow]No tools found on the server.[/bold yellow]")
+                    return {}
+                
+                # Convert tools to their JSON representation (exactly as sent to LLMs)
+                tool_defs = []
+                
+                # Add debug information about descriptions
+                has_descriptions = 0
+                total_desc_length = 0
+                
+                for tool in tools:
+                    # Convert to dict that matches the MCP protocol spec for tool definitions
+                    tool_dict = {
+                        "name": tool.get("name"),
+                        "inputSchema": tool.get("inputSchema")
+                    }
+                    
+                    # Debug description handling
+                    if tool.get("description"):
+                        desc = tool["description"]
+                        has_descriptions += 1
+                        total_desc_length += len(desc)
+                        if not quiet:
+                            console.print(f"[dim]Tool '{tool['name']}' has description ({len(desc):,} chars)[/dim]")
+                        tool_dict["description"] = desc
+                    elif not quiet:
+                        console.print(f"[dim yellow]Tool '{tool['name']}' has no description[/dim yellow]")
+                        
+                    if tool.get("annotations"):
+                        tool_dict["annotations"] = tool["annotations"]
+                    
+                    tool_defs.append(tool_dict)
+                
+                # Print description statistics
+                if not quiet:
+                    console.print(f"[green]{has_descriptions} out of {tool_count} tools have descriptions[/green]")
+                    if has_descriptions > 0:
+                        console.print(f"[green]Average description length: {total_desc_length/has_descriptions:,.1f} chars[/green]")
+                
+                # Include server info in the result to be used for creating the complete LLM prompt
+                return {
+                    "tools": tool_defs,
+                    "server_name": server_name,
+                    "server_version": server_version,
+                    "server_instructions": server_instructions
+                }
+                
+    except Exception as e:
+        console.print(f"[bold red]Error connecting to streamable-http MCP server:[/bold red] {str(e)}")
+        if not quiet:
+            console.print("[bold yellow]Stack trace:[/bold yellow]")
+            console.print(traceback.format_exc())
+        raise
+
+async def get_mcp_server_tools_stdio(command: str, args: Optional[List[str]] = None, include_tools: Optional[List[str]] = None, console: Console = None, quiet: bool = False) -> Dict[str, Any]:
+    """
+    Connect to an MCP server via stdio transport and fetch all registered tools.
+    
+    Args:
+        command: Command to run the MCP server
+        args: Additional arguments for the command
+        include_tools: Optional list of tool names to include (if None, get all tools)
+        console: Optional console for output
+        quiet: If True, only show most important output
+        
+    Returns:
+        Dictionary with server info and tool definitions
+    """
+    if console is None:
+        console = Console()
+    
+    if not quiet:
+        console.print(f"[bold blue]Connecting to MCP server via stdio: {command} {' '.join(args or [])}[/bold blue]")
+    
+    try:
+        # Build the command array
+        cmd = command.split() if isinstance(command, str) else [command]
+        if args:
+            cmd.extend(args)
+        
+        async with stdio_client(cmd) as (read, write):
+            # Create a client session
+            async with ClientSession(read, write) as session:
+                # Initialize connection to server
+                if not quiet:
+                    console.print("[bold blue]Initializing MCP protocol via stdio...[/bold blue]")
+                init_result = await session.initialize()
+                
+                # Get server info
+                server_name = init_result.serverInfo.name
+                server_version = init_result.serverInfo.version
+                if not quiet:
+                    console.print(f"[green]Connected to server:[/green] {server_name} v{server_version}")
+                
+                # Show server capabilities safely
+                if not quiet:
+                    console.print("[bold blue]Server capabilities:[/bold blue]")
+                    console.print(format_capabilities(init_result.capabilities))
+                
+                # Check if tools capability is present
+                has_tools = False
+                if hasattr(init_result.capabilities, "tools") and init_result.capabilities.tools:
+                    has_tools = True
+                    
+                if not quiet and not has_tools:
+                    console.print("[bold yellow]Warning: This server does not advertise tools capability![/bold yellow]")
+                    console.print("The server might not support tool listing, but we'll try anyway.")
+                
+                # Get server instructions (will be used in the LLM prompt)
+                server_instructions = ""
+                if hasattr(init_result, "instructions") and init_result.instructions:
+                    server_instructions = init_result.instructions
+                    if not quiet:
+                        console.print(f"[green]Server provides instructions of length {len(server_instructions):,} chars[/green]")
+                elif not quiet:
+                    console.print("[yellow]Server does not provide instructions[/yellow]")
+                
+                # List available tools
+                if not quiet:
+                    console.print("[bold blue]Retrieving tool definitions...[/bold blue]")
+                try:
+                    tools_result = await session.list_tools()
+                    
+                    # Handle ListToolsResult object
+                    tools = []
+                    if hasattr(tools_result, "tools"):
+                        tools = tools_result.tools
+                    else:
+                        if not quiet:
+                            console.print("[bold yellow]Tools result doesn't have expected structure. Trying alternatives...[/bold yellow]")
+                        if hasattr(tools_result, "__iter__"):
+                            tools = list(tools_result)
+                        else:
+                            if not quiet:
+                                console.print(f"[bold yellow]Tools result type: {type(tools_result)}[/bold yellow]")
+                                console.print(f"Tools result attributes: {dir(tools_result)}")
+                            raise ValueError("Unable to extract tools from server response")
+                    
+                    # Count tools
+                    tool_count = len(tools) if tools else 0
+                    if not quiet:
+                        console.print(f"[green]Found {tool_count} tools[/green]")
+                    
+                    if tool_count == 0:
+                        console.print("[bold yellow]No tools found on the server.[/bold yellow]")
+                        return {}
+                    
+                    # Convert tools to their JSON representation (exactly as sent to LLMs)
+                    tool_defs = []
+                    
+                    # Add debug information about descriptions
+                    has_descriptions = 0
+                    total_desc_length = 0
+                    
+                    for tool in tools:
+                        # Convert to dict that matches the MCP protocol spec for tool definitions
+                        tool_dict = {
+                            "name": tool.name,
+                            "inputSchema": tool.inputSchema
+                        }
+                        
+                        # Debug description handling
+                        if hasattr(tool, "description") and tool.description:
+                            desc = tool.description
+                            has_descriptions += 1
+                            total_desc_length += len(desc)
+                            if not quiet:
+                                console.print(f"[dim]Tool '{tool.name}' has description ({len(desc):,} chars)[/dim]")
+                            tool_dict["description"] = desc
+                        elif not quiet:
+                            console.print(f"[dim yellow]Tool '{tool.name}' has no description[/dim yellow]")
+                            
+                        if hasattr(tool, "annotations") and tool.annotations:
+                            tool_dict["annotations"] = tool.annotations
+                        
+                        tool_defs.append(tool_dict)
+                    
+                    # Print description statistics
+                    if not quiet:
+                        console.print(f"[green]{has_descriptions} out of {tool_count} tools have descriptions[/green]")
+                        if has_descriptions > 0:
+                            console.print(f"[green]Average description length: {total_desc_length/has_descriptions:,.1f} chars[/green]")
+                    
+                    # Include server info in the result to be used for creating the complete LLM prompt
+                    return {
+                        "tools": tool_defs,
+                        "server_name": server_name,
+                        "server_version": server_version,
+                        "server_instructions": server_instructions
+                    }
+                except Exception as e:
+                    console.print(f"[bold red]Error listing tools:[/bold red] {str(e)}")
+                    if not quiet:
+                        console.print("[bold yellow]Stack trace:[/bold yellow]")
+                        console.print(traceback.format_exc())
+                    raise
+    except Exception as e:
+        console.print(f"[bold red]Error connecting to MCP server via stdio:[/bold red] {str(e)}")
+        if not quiet:
+            console.print("[bold yellow]Stack trace:[/bold yellow]")
+            console.print(traceback.format_exc())
+        raise
+
+async def get_mcp_server_tools(server_url: str, transport_type: str, include_tools: Optional[List[str]] = None, console: Console = None, quiet: bool = False, command: Optional[str] = None, args: Optional[List[str]] = None) -> Dict[str, Any]:
+    """
+    Connect to an already running MCP server and fetch all registered tools.
+    
+    Args:
+        server_url: The URL of the running MCP server (ignored for stdio)
+        transport_type: The transport type ('sse', 'streamable-http', or 'stdio')
+        include_tools: Optional list of tool names to include (if None, get all tools)
+        console: Optional console for output
+        quiet: If True, only show most important output
+        command: Command to run for stdio transport
+        args: Additional arguments for stdio command
+        
+    Returns:
+        Dictionary with server info and tool definitions
+    """
+    if console is None:
+        console = Console()
+    
+    if transport_type == "streamable-http":
+        return await get_mcp_server_tools_streamable_http(server_url, include_tools, console, quiet)
+    elif transport_type == "stdio":
+        if not command:
+            raise ValueError("Command must be provided for stdio transport")
+        return await get_mcp_server_tools_stdio(command, args, include_tools, console, quiet)
+    
+    # Original SSE implementation
     if not quiet:
         console.print(f"[bold blue]Connecting to MCP server at {server_url}...[/bold blue]")
     
@@ -551,8 +1041,10 @@ async def get_complete_toolset(quiet: bool = False) -> List[Dict[str, Any]]:
     
     # First get the current server's tools to extract real descriptions where possible
     try:
-        current_server_url = get_server_url()
-        current_tools_info = await get_mcp_server_tools(current_server_url, quiet=quiet)
+        # Get server connection details
+        host, port = get_server_url_and_transport()
+        server_url, transport_type = await detect_server_transport(host, port, quiet=quiet)
+        current_tools_info = await get_mcp_server_tools(server_url, transport_type, quiet=quiet, command=None, args=None)
         current_tools = {tool["name"]: tool for tool in current_tools_info["tools"]} if current_tools_info else {}
         if not quiet:
             console.print(f"[green]Retrieved {len(current_tools)} tools from current server to use their real descriptions[/green]")
@@ -652,6 +1144,13 @@ def parse_args():
     parser = argparse.ArgumentParser(description="MCP Tool Context Estimator")
     parser.add_argument("--url", default=None, 
                         help="URL of the MCP server (default: auto-detected)")
+    parser.add_argument("--transport", default=None,
+                        choices=["sse", "streamable-http", "stdio"],
+                        help="Force specific transport type (default: auto-detect)")
+    parser.add_argument("--command", default=None,
+                        help="Command to run for stdio transport (e.g., 'python -m ultimate_mcp_server')")
+    parser.add_argument("--args", default=None, nargs="*",
+                        help="Additional arguments for stdio command")
     parser.add_argument("--no-all-tools", action="store_true",
                         help="Skip comparison with all tools")
     parser.add_argument("--quiet", "-q", action="store_true",
@@ -663,13 +1162,63 @@ async def main():
     console = Console()
     args = parse_args()
     
-    # Get server URL from arguments or auto-detect
-    server_url = args.url or get_server_url()
+    # Handle stdio transport
+    if args.transport == "stdio":
+        if not args.command:
+            console.print("[bold red]Error: --command is required for stdio transport[/bold red]")
+            console.print("Example: --transport stdio --command 'python -m ultimate_mcp_server'")
+            sys.exit(1)
+        
+        server_url = None  # Not used for stdio
+        transport_type = "stdio"
+        command = args.command
+        stdio_args = args.args or []
+        
+        if not args.quiet:
+            console.print(f"[blue]Using stdio transport with command: {command} {' '.join(stdio_args)}[/blue]")
+    else:
+        # Get server connection details for HTTP transports
+        if args.url:
+            # Parse URL to extract host and port
+            import urllib.parse
+            parsed = urllib.parse.urlparse(args.url)
+            host = parsed.hostname or "localhost"
+            port = str(parsed.port or 8013)
+            if args.transport:
+                transport_type = args.transport
+                if transport_type == "sse":
+                    server_url = f"http://{host}:{port}/sse"
+                else:  # streamable-http
+                    server_url = f"http://{host}:{port}/mcp/"
+            else:
+                # Auto-detect transport for manually specified URL
+                server_url, transport_type = await detect_server_transport(host, port, quiet=args.quiet)
+        else:
+            # Auto-detect everything
+            host, port = get_server_url_and_transport()
+            if args.transport:
+                transport_type = args.transport
+                if transport_type == "sse":
+                    server_url = f"http://{host}:{port}/sse"
+                else:  # streamable-http
+                    server_url = f"http://{host}:{port}/mcp/"
+            else:
+                server_url, transport_type = await detect_server_transport(host, port, quiet=args.quiet)
+        
+        command = None
+        stdio_args = None
+    
     quiet_mode = args.quiet
     
     try:
         # Get the active toolset from the running server
-        current_tools = await get_mcp_server_tools(server_url, quiet=quiet_mode)
+        current_tools = await get_mcp_server_tools(
+            server_url, 
+            transport_type, 
+            quiet=quiet_mode,
+            command=command,
+            args=stdio_args
+        )
         
         if not current_tools or "tools" not in current_tools or not current_tools["tools"]:
             console.print("[bold yellow]No tools found on the server.[/bold yellow]")

@@ -2,7 +2,7 @@
 from typing import Any, Dict, Optional
 
 # Import ToolError explicitly
-from mcp.server.fastmcp.exceptions import ToolError
+from ultimate_mcp_server.exceptions import ToolError
 
 # REMOVE global instance logic
 from ultimate_mcp_server.utils import get_logger

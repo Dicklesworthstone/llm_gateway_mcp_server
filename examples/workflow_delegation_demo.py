@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 # Add project root to path for imports when running as script
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from rich import box
 from rich.markup import escape
 from rich.panel import Panel

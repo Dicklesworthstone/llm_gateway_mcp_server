@@ -26,8 +26,6 @@ Key Features:
     and a `dry_run` option enhance usability for AI agents.
 """
 
-from __future__ import annotations
-
 import asyncio
 import hashlib
 import json

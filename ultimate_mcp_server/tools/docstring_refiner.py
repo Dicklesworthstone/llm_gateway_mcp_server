@@ -45,7 +45,7 @@ Core Methodology:
 
 Dependencies:
 - Relies heavily on the `generate_completion` tool for internal LLM calls.
-- Requires access to the MCP server instance (`ctx.mcp`) to list tools and execute them.
+- Requires access to the FastMCP server instance (`ctx.fastmcp`) to list tools and execute them.
 - Uses `jsonschema` and `jsonpatch` for schema manipulation and validation.
 - Uses standard project infrastructure (logging, exceptions, constants, base tool decorators).
 
@@ -78,10 +78,10 @@ import jsonschema  # noqa: E402
 from jsonpatch import JsonPatchException, apply_patch  # noqa: E402 
 from jsonpointer import JsonPointerException  # noqa: E402
 from jsonschema.exceptions import SchemaError as JsonSchemaValidationError  # noqa: E402
-from mcp.server.fastmcp import Context as McpContext
+from fastmcp import Context as McpContext
 
 # MCP and Pydantic Types
-from mcp.types import Tool as McpToolDef
+from fastmcp.types import Tool as McpToolDef
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 # Project Imports
@@ -2730,9 +2730,9 @@ async def refine_tool_documentation(
                     raise
 
     # --- Validate Inputs and Context ---
-    if not ctx or not hasattr(ctx, 'mcp') or ctx.mcp is None:
-        raise ToolError("MCP context (ctx.mcp) is required.", error_code="CONTEXT_MISSING")
-    mcp_instance = ctx.mcp
+    if not ctx or not hasattr(ctx, 'fastmcp') or ctx.fastmcp is None:
+        raise ToolError("FastMCP context (ctx.fastmcp) is required.", error_code="CONTEXT_MISSING")
+    mcp_instance = ctx.fastmcp
 
     all_tools_dict: Dict[str, McpToolDef] = {}
     if hasattr(mcp_instance, '_tools'): 

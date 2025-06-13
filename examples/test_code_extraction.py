@@ -37,7 +37,7 @@ logger = get_logger("example.test_extraction")
 gateway = None
 
 # Path to the tournament state file from the last run
-TOURNAMENT_STATE_PATH = "/home/ubuntu/ultimate_mcp_server/storage/tournaments/2025-04-01_03-24-37_tournament_76009a9a/tournament_state.json"
+TOURNAMENT_STATE_PATH = "/data/projects/ultimate_mcp_server/storage/tournaments/2025-04-01_03-24-37_tournament_76009a9a/tournament_state.json"
 
 async def setup_gateway():
     """Set up the gateway for testing."""

@@ -5,8 +5,6 @@ A comprehensive, fault-tolerant toolkit for document processing, providing:
 (Functionality remains the same as the original class docstring)
 """
 
-from __future__ import annotations
-
 ###############################################################################
 # Imports                                                                     #
 ###############################################################################

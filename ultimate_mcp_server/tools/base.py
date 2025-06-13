@@ -6,11 +6,11 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 try:
-    from mcp import Tool
+    from fastmcp import Tool
 except ImportError:
     # Handle case where mcp might be available via different import
     try:
-        from mcp.server.fastmcp import Tool
+        from fastmcp import Tool
     except ImportError:
         Tool = None  # Tool will be provided by the mcp_server
 
@@ -1466,19 +1466,21 @@ def with_state_management(namespace: str):
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            # Get MCP server from context
+            # Get context from kwargs
             context = kwargs.get('ctx')
-            if not context or not hasattr(context, 'mcp'):
-                raise ValueError("Context with MCP server required")
+            if not context or not hasattr(context, 'fastmcp'):
+                raise ValueError("Context with FastMCP server required")
             
-            mcp = context.mcp
-            if not hasattr(mcp, 'state_store'):
-                raise ValueError("MCP server does not have a state store")
+            # Access StateStore via the FastMCP 2.0+ pattern
+            if not hasattr(context.fastmcp, '_state_store'):
+                raise ValueError("FastMCP server does not have a state store attached")
+            
+            state_store = context.fastmcp._state_store
             
             # Add state accessors to kwargs
-            kwargs['get_state'] = lambda key, default=None: mcp.state_store.get(namespace, key, default)
-            kwargs['set_state'] = lambda key, value: mcp.state_store.set(namespace, key, value)
-            kwargs['delete_state'] = lambda key: mcp.state_store.delete(namespace, key)
+            kwargs['get_state'] = lambda key, default=None: state_store.get(namespace, key, default)
+            kwargs['set_state'] = lambda key, value: state_store.set(namespace, key, value)
+            kwargs['delete_state'] = lambda key: state_store.delete(namespace, key)
             
             return await func(*args, **kwargs)
         

@@ -310,7 +310,7 @@ BASE_TOOLSET_CATEGORIES = {
         "record_action_start", "record_action_completion", "get_action_details",
         "summarize_context_block", "add_action_dependency", "get_action_dependencies",
         "record_artifact", "record_thought", "store_memory", "get_memory_by_id",
-        "search_semantic_memories", "hybrid_search_memories", "create_memory_link",
+        "hybrid_search_memories", "create_memory_link",
         "query_memories", "list_workflows", "get_workflow_details", "get_recent_actions",
         "get_artifacts", "get_artifact_by_id", "create_thought_chain", "get_thought_chain",
         "get_working_memory", "focus_memory", "optimize_working_memory",

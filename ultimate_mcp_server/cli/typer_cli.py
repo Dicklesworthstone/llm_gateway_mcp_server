@@ -59,6 +59,8 @@ class TransportMode(str, Enum):
 
     SSE = "sse"
     STDIO = "stdio"
+    STREAMABLE_HTTP = "streamable-http"
+    SHTTP = "shttp"  # Short alias for streamable-http
 
 
 # Define tool-to-example mapping
@@ -200,10 +202,10 @@ WORKERS_OPTION = typer.Option(
     rich_help_panel="Server Options",
 )
 TRANSPORT_MODE_OPTION = typer.Option(
-    TransportMode.SSE,
+    TransportMode.STREAMABLE_HTTP,
     "-t",
     "--transport-mode",
-    help="[cyan]Transport mode[/cyan] for server communication (-t shortcut). Options: 'sse' or 'stdio'.",
+    help="[cyan]Transport mode[/cyan] for server communication (-t shortcut). Options: 'sse', 'stdio', 'streamable-http', 'shttp'.",
     rich_help_panel="Server Options",
 )
 DEBUG_OPTION = typer.Option(
@@ -451,12 +453,19 @@ def run(
     console.print(Panel(server_info_str, title="[bold blue]Starting Ultimate MCP Server[/bold blue]", expand=False))
     console.print() # Add a newline for spacing
     
+    # Convert transport_mode enum to string and handle aliases
+    if transport_mode == TransportMode.SHTTP:
+        actual_transport_mode = "streamable-http"
+    else:
+        # Convert enum to string value (e.g., TransportMode.SSE -> "sse")
+        actual_transport_mode = transport_mode.value
+    
     # Run the server
     run_server(
         host=host,
         port=port,
         workers=workers,
-        transport_mode=transport_mode,
+        transport_mode=actual_transport_mode,
         include_tools=include_tools,
         exclude_tools=exclude_tools,
         load_all_tools=load_all_tools,

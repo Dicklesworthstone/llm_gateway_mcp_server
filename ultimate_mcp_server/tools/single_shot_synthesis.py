@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from mcp.server.fastmcp.exceptions import ToolError
+from ultimate_mcp_server.exceptions import ToolError
 from pydantic import ValidationError
 
 from ultimate_mcp_server.core.models.tournament import (  # Reusing models from tournament where appropriate

@@ -118,18 +118,18 @@ try:
     # ------------------------------------------------------------------
     _defaults = {
         # --- relevance / similarity ---
-        "memory_decay_rate":        0.001,      # per-hour linear decay
-        "similarity_threshold":     0.85,       # cosine-similarity cutoff
+        "memory_decay_rate": 0.001,  # per-hour linear decay
+        "similarity_threshold": 0.85,  # cosine-similarity cutoff
         # --- serialization ---
-        "max_text_length":          64_000,     # byte-cap enforced by MemoryUtils.serialize
+        "max_text_length": 64_000,  # byte-cap enforced by MemoryUtils.serialize
         # --- TTLs used by store_memory (new) ---
-        "ttl_working":              3_600,      # 1 hour default for WORKING memories
-        "ttl_episodic":             86_400,     # 24 hours default for EPISODIC memories
+        "ttl_working": 3_600,  # 1 hour default for WORKING memories
+        "ttl_episodic": 86_400,  # 24 hours default for EPISODIC memories
         # --- search tuning used by hybrid_search_memories (new) ---
-        "max_semantic_candidates":  500,        # hard ceiling on candidate pool
+        "max_semantic_candidates": 500,  # hard ceiling on candidate pool
         # --- multi-tool support ---
-        "enable_batched_operations": True,      # allow multiple tool calls per turn
-        "max_tools_per_batch":      20,         # prevent abuse
+        "enable_batched_operations": True,  # allow multiple tool calls per turn
+        "max_tools_per_batch": 20,  # prevent abuse
     }
 
     for _k, _v in _defaults.items():
@@ -137,11 +137,11 @@ try:
             setattr(agent_memory_config, _k, _v)
 
     # Expose fast globals for hot paths; attributes remain on the config object
-    MEMORY_DECAY_RATE       = agent_memory_config.memory_decay_rate
-    SIMILARITY_THRESHOLD    = agent_memory_config.similarity_threshold
-    MAX_TEXT_LENGTH         = agent_memory_config.max_text_length
-    TTL_WORKING_DEFAULT     = agent_memory_config.ttl_working
-    TTL_EPISODIC_DEFAULT    = agent_memory_config.ttl_episodic
+    MEMORY_DECAY_RATE = agent_memory_config.memory_decay_rate
+    SIMILARITY_THRESHOLD = agent_memory_config.similarity_threshold
+    MAX_TEXT_LENGTH = agent_memory_config.max_text_length
+    TTL_WORKING_DEFAULT = agent_memory_config.ttl_working
+    TTL_EPISODIC_DEFAULT = agent_memory_config.ttl_episodic
     MAX_SEMANTIC_CANDIDATES = agent_memory_config.max_semantic_candidates
 
 except Exception as config_e:
@@ -173,63 +173,64 @@ UMS_PKG_DEFAULT_FETCH_LINKS = 5
 # Show limits are mainly for compression decisions within this tool, or if it were to do truncation.
 UMS_PKG_DEFAULT_SHOW_LINKS_SUMMARY = 3
 
-MIN_CONFIDENCE_SEMANTIC: float = 0.90      #  ↔ promote_memory_level default
+MIN_CONFIDENCE_SEMANTIC: float = 0.90  #  ↔ promote_memory_level default
 
 # ======================================================
 # Batch Operation Support for Multi-Tool Agent Calls
 # ======================================================
 
 # Context variable to track batch operations
-_batch_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar('ums_batch_context', default=None)
+_batch_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("ums_batch_context", default=None)
+
 
 class UMSBatchContext:
     """Context manager for batching multiple UMS tool calls within a single agent turn."""
-    
+
     def __init__(self, batch_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
         self.batch_id = batch_id or f"batch_{uuid.uuid4().hex[:8]}"
         self.metadata = metadata or {}
         self.start_time = time.time()
         self.tool_calls: List[Dict[str, Any]] = []
         self.shared_connections: Dict[str, Any] = {}
-        
+
     async def __aenter__(self):
         batch_data = {
-            'batch_id': self.batch_id,
-            'metadata': self.metadata,
-            'start_time': self.start_time,
-            'tool_calls': self.tool_calls,
-            'shared_connections': self.shared_connections
+            "batch_id": self.batch_id,
+            "metadata": self.metadata,
+            "start_time": self.start_time,
+            "tool_calls": self.tool_calls,
+            "shared_connections": self.shared_connections,
         }
         _batch_context.set(batch_data)
         logger.debug(f"Started UMS batch context: {self.batch_id}")
         return self
-        
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         batch_data = _batch_context.get()
         if batch_data:
-            elapsed = time.time() - batch_data['start_time']
+            elapsed = time.time() - batch_data["start_time"]
             logger.info(
                 f"Completed UMS batch {self.batch_id}: {len(batch_data['tool_calls'])} tools in {elapsed:.3f}s",
-                emoji_key="package"
+                emoji_key="package",
             )
         _batch_context.set(None)
-        
+
     def record_tool_call(self, tool_name: str, params: Dict[str, Any], result: Dict[str, Any]):
         """Record a tool call within this batch."""
-        self.tool_calls.append({
-            'tool_name': tool_name,
-            'params': params,
-            'result': result,
-            'timestamp': time.time()
-        })
+        self.tool_calls.append(
+            {"tool_name": tool_name, "params": params, "result": result, "timestamp": time.time()}
+        )
+
 
 def get_current_batch() -> Optional[Dict[str, Any]]:
     """Get the current batch context if any."""
     return _batch_context.get()
 
+
 def is_in_batch() -> bool:
     """Check if we're currently in a batch context."""
     return _batch_context.get() is not None
+
 
 # ======================================================
 # Enums (Combined & Standardized)
@@ -330,7 +331,7 @@ class MemoryType(str, Enum):
     USER_INPUT = "user_input"
     TEXT = "text"  # Generic text block (fallback)
     WARNING = "warning"
-    CONTRADICTION_ANALYSIS = "contradiction_analysis"  
+    CONTRADICTION_ANALYSIS = "contradiction_analysis"
     VALIDATION_FAILURE = "validation_failure"
     CORRECTION = "correction"
     TOOL_EFFECTIVENESS = "tool_effectiveness"
@@ -345,7 +346,7 @@ class LinkType(str, Enum):
     """Types of associations between memories (from cognitive_memory)."""
 
     RELATED = "related"
-    CAUSAL = "causal" 
+    CAUSAL = "causal"
     SEQUENTIAL = "sequential"
     HIERARCHICAL = "hierarchical"
     CONTRADICTS = "contradicts"
@@ -357,7 +358,7 @@ class LinkType(str, Enum):
     TASK = "task"
     REFERENCES = "references"
     ELABORATES = "elaborates"
-    QUESTION_OF = "question_of" 
+    QUESTION_OF = "question_of"
     CONSEQUENCE_OF = "consequence_of"
 
 
@@ -636,7 +637,7 @@ SCHEMA_STATEMENTS = [
     # Root goals: unique sequence numbers within workflow where parent_goal_id IS NULL
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_goals_root_sequence_unique "
     "ON goals (workflow_id, sequence_number) WHERE parent_goal_id IS NULL;",
-    # Child goals: unique sequence numbers within parent goal where parent_goal_id IS NOT NULL  
+    # Child goals: unique sequence numbers within parent goal where parent_goal_id IS NOT NULL
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_goals_child_sequence_unique "
     "ON goals (parent_goal_id, sequence_number) WHERE parent_goal_id IS NOT NULL;",
 ]
@@ -652,28 +653,28 @@ def _fmt_id(val: Any, length: int = 8) -> str:
 def _validate_uuid_format(uuid_str: str, param_name: str = "id") -> str:
     """
     Validate that a string is a proper UUID format.
-    
+
     For backwards compatibility, also accepts truncated UUIDs (8 hex chars)
     which will be resolved to full UUIDs via database lookup.
-    
+
     Args:
         uuid_str: The string to validate
         param_name: Parameter name for error messages
-        
+
     Returns:
         The validated UUID string (may be truncated for later resolution)
-        
+
     Raises:
         ToolInputError: If the string is not a valid UUID or truncated UUID format
     """
     if not uuid_str:
         raise ToolInputError(f"{param_name} is required.", param_name=param_name)
-    
+
     # Check if it looks like a truncated ID (8 chars, hex)
-    if len(uuid_str) == 8 and all(c in '0123456789abcdefABCDEF' for c in uuid_str):
+    if len(uuid_str) == 8 and all(c in "0123456789abcdefABCDEF" for c in uuid_str):
         # Return as-is, will be resolved in the calling function
         return uuid_str.lower()
-    
+
     try:
         # Validate full UUID format
         uuid.UUID(uuid_str)
@@ -681,7 +682,7 @@ def _validate_uuid_format(uuid_str: str, param_name: str = "id") -> str:
     except ValueError as e:
         raise ToolInputError(
             f"Invalid {param_name} format '{uuid_str}'. Must be a valid UUID or 8-character hex prefix.",
-            param_name=param_name
+            param_name=param_name,
         ) from e
 
 
@@ -690,85 +691,82 @@ async def _resolve_truncated_id(
     truncated_id: str,
     table: str,
     id_column: str,
-    param_name: str = "id"
+    param_name: str = "id",
 ) -> str:
     """
     Resolve a truncated UUID to a full UUID by searching the database.
-    
+
     Args:
         conn: Database connection
         truncated_id: 8-character hex prefix
         table: Table name to search
         id_column: Column name containing UUIDs
         param_name: Parameter name for error messages
-        
+
     Returns:
         Full UUID string
-        
+
     Raises:
         ToolInputError: If no matches or multiple matches found
     """
     if len(truncated_id) != 8:
-        raise ToolInputError(f"Truncated {param_name} must be exactly 8 characters.", param_name=param_name)
-    
+        raise ToolInputError(
+            f"Truncated {param_name} must be exactly 8 characters.", param_name=param_name
+        )
+
     # Search for UUIDs starting with the truncated portion
     rows = await conn.execute_fetchall(
-        f"SELECT {id_column} FROM {table} WHERE {id_column} LIKE ? LIMIT 10",
-        (f"{truncated_id}%",)
+        f"SELECT {id_column} FROM {table} WHERE {id_column} LIKE ? LIMIT 10", (f"{truncated_id}%",)
     )
-    
+
     if not rows:
         raise ToolInputError(
             f"No {table[:-1]} found with {param_name} starting with '{truncated_id}'.",
-            param_name=param_name
+            param_name=param_name,
         )
-    
+
     if len(rows) > 1:
         matches = [row[0] for row in rows]
         raise ToolInputError(
             f"Ambiguous {param_name} '{truncated_id}' matches multiple {table}: {', '.join(_fmt_id(m) for m in matches[:5])}{'...' if len(matches) > 5 else ''}. "
             f"Please use full UUID.",
-            param_name=param_name
+            param_name=param_name,
         )
-    
+
     full_uuid = rows[0][0]
     logger.debug(f"Resolved truncated {param_name} '{truncated_id}' to full UUID '{full_uuid}'")
     return full_uuid
 
 
 async def _validate_and_resolve_id(
-    db_conn: "DBConnection",
-    id_value: str,
-    table: str,
-    id_column: str,
-    param_name: str = "id"
+    db_conn: "DBConnection", id_value: str, table: str, id_column: str, param_name: str = "id"
 ) -> str:
     """
     Convenience function that validates and resolves IDs (full UUID or truncated).
-    
+
     Args:
         db_conn: Database connection instance
         id_value: ID to validate and resolve
         table: Table name to search for truncated IDs
         id_column: Column name containing UUIDs
         param_name: Parameter name for error messages
-        
+
     Returns:
         Full UUID string
-        
+
     Raises:
         ToolInputError: If validation fails or truncated ID cannot be resolved
     """
     # Validate format first
     validated_id = _validate_uuid_format(id_value, param_name)
-    
+
     # If it's a truncated ID, resolve it to a full UUID
     if len(validated_id) == 8:
         async with db_conn.transaction(readonly=True) as conn:
             validated_id = await _resolve_truncated_id(
                 conn, validated_id, table, id_column, param_name
             )
-    
+
     return validated_id
 
 
@@ -779,39 +777,52 @@ _MUTATION_SQL = re.compile(r"^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER
 # Secure Path Validation & File Access Control
 # ======================================================
 
+
 def validate_and_secure_db_path(db_path: str) -> str:
     """
     Validate and secure a database path with lightweight checks.
-    
+
     This function is optimized for frequent calls during database connections.
     It performs basic security validation without expensive filesystem operations.
-    
+
     Args:
         db_path: Original database path from config
-        
+
     Returns:
         Safe database path
     """
     import os
-    
+
     try:
         path_obj = Path(db_path).resolve()
-        
+
         # Quick check for obviously unsafe paths
         path_str = str(path_obj)
         unsafe_prefixes = [
-            "/bin/", "/sbin/", "/usr/bin/", "/usr/sbin/", "/etc/", 
-            "/var/log/", "/var/run/", "/var/spool/", "/sys/", "/proc/", "/dev/", "/root/"
+            "/bin/",
+            "/sbin/",
+            "/usr/bin/",
+            "/usr/sbin/",
+            "/etc/",
+            "/var/log/",
+            "/var/run/",
+            "/var/spool/",
+            "/sys/",
+            "/proc/",
+            "/dev/",
+            "/root/",
         ]
-        
+
         for unsafe in unsafe_prefixes:
-            if path_str.startswith(unsafe) or path_str == unsafe.rstrip('/'):
-                logger.debug(f"Database path '{db_path}' is in restricted directory, using fallback")
+            if path_str.startswith(unsafe) or path_str == unsafe.rstrip("/"):
+                logger.debug(
+                    f"Database path '{db_path}' is in restricted directory, using fallback"
+                )
                 return _get_safe_fallback_path(db_path)
-        
+
         # Check if we can likely create the path (quick check)
         parent = path_obj.parent
-        
+
         # If parent exists, check if it's writable
         if parent.exists():
             if os.access(str(parent), os.W_OK):
@@ -819,19 +830,19 @@ def validate_and_secure_db_path(db_path: str) -> str:
             else:
                 logger.debug(f"No write permission to '{parent}', using fallback")
                 return _get_safe_fallback_path(db_path)
-        
+
         # If parent doesn't exist, check if we can create it
         # Find the first existing parent
         check_parent = parent
         while not check_parent.exists() and check_parent != check_parent.parent:
             check_parent = check_parent.parent
-        
+
         if check_parent.exists() and os.access(str(check_parent), os.W_OK):
             return str(path_obj)
         else:
             logger.debug(f"Cannot create database directory '{parent}', using fallback")
             return _get_safe_fallback_path(db_path)
-            
+
     except Exception as e:
         logger.debug(f"Path validation failed for '{db_path}': {e}, using fallback")
         return _get_safe_fallback_path(db_path)
@@ -840,14 +851,15 @@ def validate_and_secure_db_path(db_path: str) -> str:
 def _get_safe_fallback_path(original_path: str) -> str:
     """Get a safe fallback path for database files (lightweight)."""
     import tempfile
-    
+
     db_filename = Path(original_path).name
-    
+
     # Try to check filesystem allowed directories if available (but don't fail if not)
     try:
         from ultimate_mcp_server.tools.filesystem import get_allowed_directories
+
         allowed_dirs = get_allowed_directories()
-        
+
         if allowed_dirs:
             for allowed_dir in allowed_dirs:
                 try:
@@ -859,7 +871,7 @@ def _get_safe_fallback_path(original_path: str) -> str:
                     continue
     except (ImportError, Exception):
         pass
-    
+
     # Standard fallbacks
     try:
         user_fallback = Path.home() / ".ultimate_mcp_server" / db_filename
@@ -867,7 +879,7 @@ def _get_safe_fallback_path(original_path: str) -> str:
             return str(user_fallback)
     except Exception:
         pass
-    
+
     # Ultimate fallback to temp
     temp_fallback = Path(tempfile.gettempdir()) / "ultimate_mcp_server" / db_filename
     return str(temp_fallback)
@@ -876,29 +888,28 @@ def _get_safe_fallback_path(original_path: str) -> str:
 def _can_create_path_quickly(path: Path) -> bool:
     """Quick check if a path can likely be created (no expensive operations)."""
     import os
-    
+
     try:
         if path.exists():
             return True
-        
+
         # Find first existing parent
         parent = path.parent
         while not parent.exists() and parent != parent.parent:
             parent = parent.parent
-        
+
         return parent.exists() and os.access(str(parent), os.W_OK)
     except Exception:
         return False
 
 
-
 def safe_mkdir(path: Path) -> bool:
     """
     Safely create a directory with proper error handling.
-    
+
     This is an internal utility function that should be fast and quiet.
     For user-facing directory operations, use filesystem tools directly.
-    
+
     Returns:
         True if directory exists or was created successfully, False otherwise
     """
@@ -909,14 +920,11 @@ def safe_mkdir(path: Path) -> bool:
         logger.error(
             f"Permission denied creating directory: {path}. "
             f"Please check directory permissions or configure a different path.",
-            emoji_key="lock"
+            emoji_key="lock",
         )
         return False
     except OSError as e:
-        logger.error(
-            f"Failed to create directory {path}: {e}",
-            emoji_key="error"
-        )
+        logger.error(f"Failed to create directory {path}: {e}", emoji_key="error")
         return False
 
 
@@ -934,21 +942,24 @@ class DBConnection:
     def __init__(self, db_path: str = agent_memory_config.db_path):
         # Validate and secure the database path
         import tempfile
+
         secure_db_path = validate_and_secure_db_path(db_path)
         self.db_path = str(Path(secure_db_path).resolve())
-        
+
         # Safely create parent directory
         parent_dir = Path(self.db_path).parent
         if not safe_mkdir(parent_dir):
             # If we can't create the directory, fall back to a temp location
-            fallback_path = Path(tempfile.gettempdir()) / "ultimate_mcp_server" / Path(self.db_path).name
+            fallback_path = (
+                Path(tempfile.gettempdir()) / "ultimate_mcp_server" / Path(self.db_path).name
+            )
             logger.warning(
                 f"Failed to create database directory. Using fallback: {fallback_path}",
-                emoji_key="warning"
+                emoji_key="warning",
             )
             safe_mkdir(fallback_path.parent)  # Create temp directory
             self.db_path = str(fallback_path)
-        
+
         self._managed_conn: Optional[aiosqlite.Connection] = None
 
     # ------------------------------------------------------------------ #
@@ -1073,6 +1084,7 @@ class DBConnection:
                     def _trace(sql: str) -> None:
                         if _MUTATION_SQL.match(sql):
                             logger.debug(f"DB TRACE: {sql.split(None, 1)[0]} …")
+
                     await conn.set_trace_callback(_trace)
                     # ------------------------------------------------------------------
 
@@ -1213,25 +1225,25 @@ def _compute_memory_relevance(
     now = time.time()
     created = created or now
     last = last or created
-    
+
     # Use consistent time units (all in seconds)
     age_seconds = now - created
     recency_seconds = now - last
-    
+
     # Smooth exponential decay instead of cliff-drop
     age_hours = age_seconds / 3600
     decay_factor = np.exp(-MEMORY_DECAY_RATE * age_hours)  # Exponential decay
-    
+
     # Recency boost (higher for recently accessed memories)
     recency_days = recency_seconds / 86400
     recency_factor = 1 / (1 + recency_days)
-    
+
     # Usage boost with logarithmic scaling (diminishing returns)
     usage_factor = 1 + np.log(1 + cnt) / 10  # Smooth scaling
-    
+
     # Combine all factors
     score = imp * decay_factor * usage_factor * conf * recency_factor
-    
+
     return max(0, min(score, 10))
 
 
@@ -1239,13 +1251,13 @@ def _compute_memory_relevance(
 # Utilities
 # ======================================================
 
+
 async def _ensure_udfs_registered(conn: aiosqlite.Connection) -> None:
     """Re-register UDFs if they're missing on this connection."""
     try:
         # Quick test if compute_memory_relevance is available
         await conn.execute_fetchone(
-            "SELECT compute_memory_relevance(5.0, 1.0, ?, 0, NULL) AS test", 
-            (int(time.time()),)
+            "SELECT compute_memory_relevance(5.0, 1.0, ?, 0, NULL) AS test", (int(time.time()),)
         )
     except aiosqlite.OperationalError as e:
         if "no such function" in str(e).lower() or "no such column" in str(e).lower():
@@ -1270,8 +1282,8 @@ def safe_format_timestamp(ts_value):
         try:
             # Reasonable timestamp range validation (1900-2100)
             MIN_TIMESTAMP = -2208988800  # January 1, 1900 00:00:00 UTC
-            MAX_TIMESTAMP = 4102444800   # January 1, 2100 00:00:00 UTC
-            
+            MAX_TIMESTAMP = 4102444800  # January 1, 2100 00:00:00 UTC
+
             if not (MIN_TIMESTAMP <= ts_value <= MAX_TIMESTAMP):
                 logger.warning(
                     f"Timestamp {ts_value} outside reasonable range (1900-2100), returning as string."
@@ -1303,12 +1315,700 @@ def safe_format_timestamp(ts_value):
         return str(ts_value)
 
 
+@with_error_handling
+async def summarize_text(
+    text_to_summarize: str,
+    *,
+    target_tokens: int = 500,
+    prompt_template: str | None = None,
+    provider: str = "openai",
+    model: str | None = None,
+    workflow_id: str | None = None,
+    record_summary: bool = False,
+    context_type: str | None = None,
+    db_path: str = agent_memory_config.db_path,
+) -> Dict[str, Any]:
+    """
+    Summarise *text_to_summarize* with an LLM and (optionally) store the result as a memory.
+
+    Returned keys
+    -------------
+    summary, original_length, summary_length,
+    stored_memory_id, success, processing_time
+    """
+    t0 = time.time()
+
+    # ───────── basic validation ─────────
+    if not text_to_summarize:
+        raise ToolInputError("text_to_summarize cannot be empty", param_name="text_to_summarize")
+    if record_summary and not workflow_id:
+        raise ToolInputError(
+            "workflow_id required when record_summary=True", param_name="workflow_id"
+        )
+
+    target_tokens = max(50, min(2_000, target_tokens))
+
+    # ───────── provider / model resolution (FIX #13 & #14) ─────────
+    cfg = get_config()
+    provider_key: str = provider or cfg.default_provider or LLMGatewayProvider.OPENAI.value
+
+    default_models: dict[str, str] = {
+        LLMGatewayProvider.OPENAI.value: "gpt-4.1-mini",
+        LLMGatewayProvider.ANTHROPIC.value: "claude-3-5-haiku-20241022",
+    }
+
+    # first attempt to honour explicit `model` or hard-coded defaults
+    model_name: str | None = model or default_models.get(provider_key)
+
+    # initialise provider once (avoid double await + latency)
+    prov = await get_provider(provider_key)
+    if prov is None:
+        raise ToolError(
+            f"LLM provider '{provider_key}' unavailable. "
+            f"Available providers: {', '.join(p.value for p in LLMGatewayProvider)}"
+        )
+
+    # fall back to provider’s own default model if we still have none
+    if model_name is None:
+        model_name = prov.get_default_model()
+
+    # ───────── default prompt (rich version) ─────────
+    if prompt_template is None:
+        prompt_template = (
+            "You are an expert technical writer and editor.\n"
+            "Your task is to produce a **concise, accurate, well-structured summary** "
+            "of the text provided below.\n\n"
+            "**Requirements**\n"
+            "1. Length ≈ {target_tokens} tokens (±10 %).\n"
+            "2. Preserve all critical facts, numbers, names, and causal relationships.\n"
+            "3. Omit anecdotes, filler, or rhetorical questions unless essential to meaning.\n"
+            "4. Write in clear, neutral, third-person prose; bullet lists are welcome where helpful.\n"
+            "5. Do **not** add opinions or external knowledge.\n\n"
+            "---\n"
+            "### ORIGINAL TEXT\n"
+            "{text_to_summarize}\n"
+            "---\n"
+            "### SUMMARY\n"
+        )
+
+    # ───────── LLM invocation ─────────
+    try:
+        prompt = prompt_template.format(
+            text_to_summarize=text_to_summarize,
+            target_tokens=target_tokens,
+        )
+        result = await prov.generate_completion(
+            prompt=prompt,
+            model=model_name,
+            max_tokens=target_tokens + 100,
+            temperature=0.3,
+        )
+        summary = result.text.strip()
+        if not summary:
+            raise ToolError("LLM returned empty summary.")
+    except Exception as exc:
+        logger.error(f"LLM summarisation failed: {exc}", exc_info=True)
+        raise ToolError(f"Failed to generate summary: {exc}") from exc
+
+    stored_memory_id: str | None = None
+
+    # ───────── optional persistence ─────────
+    if record_summary:
+        db = DBConnection(db_path)
+        async with db.transaction() as conn:
+            if not await conn.execute_fetchone(
+                "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
+            ):
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
+            now = int(time.time())
+            stored_memory_id = MemoryUtils.generate_id()
+            tags = {
+                "summary",
+                "automated",
+                "text_summary",
+                MemoryLevel.SEMANTIC.value,
+                MemoryType.SUMMARY.value,
+            }
+            if context_type:
+                tags.add(context_type)
+
+            await conn.execute(
+                """
+                INSERT INTO memories (
+                    memory_id, workflow_id, content,
+                    memory_level, memory_type,
+                    importance, confidence,
+                    description, source, tags,
+                    created_at, updated_at, access_count
+                )
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    stored_memory_id,
+                    workflow_id,
+                    summary,
+                    MemoryLevel.SEMANTIC.value,
+                    MemoryType.SUMMARY.value,
+                    6.0,
+                    0.85,
+                    f"Summary ({context_type or 'ad-hoc'}) of {len(text_to_summarize)}-character text",
+                    "summarize_text_tool",
+                    json.dumps(sorted(tags)),
+                    now,
+                    now,
+                    0,
+                ),
+            )
+
+            await MemoryUtils._log_memory_operation(
+                conn,
+                workflow_id,
+                "create_summary_memory",
+                stored_memory_id,
+                None,
+                {
+                    "original_length": len(text_to_summarize),
+                    "summary_length": len(summary),
+                    "context_type": context_type,
+                },
+            )
+
+    elapsed = time.time() - t0
+    logger.info(
+        f"Summarised {len(text_to_summarize)} chars → {len(summary)} chars "
+        f"({'stored' if stored_memory_id else 'not stored'})",
+        emoji_key="scissors",
+        time=elapsed,
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "summary": summary,
+            "original_length": len(text_to_summarize),
+            "summary_length": len(summary),
+            "stored_memory_id": stored_memory_id,
+        },
+        "processing_time": elapsed,
+    }
+
+
+async def delete_expired_memories(
+    *,
+    db_path: str = agent_memory_config.db_path,
+) -> Dict[str, Any]:
+    """
+    Purge memories whose *ttl* has elapsed and write an operation-log entry
+    for each affected workflow.
+
+    Returns
+    -------
+    {
+        deleted_count      : int,
+        workflows_affected : list[str],
+        success            : True,
+        processing_time    : float   # seconds
+    }
+    """
+    t0 = time.time()
+    db = DBConnection(db_path)
+    now_ts = int(time.time())
+
+    deleted_ids: list[str] = []
+    wf_affected: set[str] = set()
+
+    async with db.transaction(mode="IMMEDIATE") as conn:
+        rows = await conn.execute_fetchall(
+            """
+            SELECT memory_id, workflow_id
+            FROM   memories
+            WHERE  ttl > 0
+              AND  created_at + ttl < ?
+            """,
+            (now_ts,),
+        )
+
+        if not rows:
+            return {
+                "success": True,
+                "data": {
+                    "deleted_count": 0,
+                    "workflows_affected": [],
+                },
+                "processing_time": time.time() - t0,
+            }
+
+        deleted_ids = [r["memory_id"] for r in rows]
+        wf_affected = {r["workflow_id"] for r in rows}
+
+        # batch delete (SQLITE_MAX_VARIABLE_NUMBER ≈ 999)
+        BATCH = 500
+        for i in range(0, len(deleted_ids), BATCH):
+            batch = deleted_ids[i : i + BATCH]
+            ph = ",".join("?" * len(batch))
+            await conn.execute(f"DELETE FROM memories WHERE memory_id IN ({ph})", batch)
+
+        # per-workflow operation log
+        for wf in wf_affected:
+            expired_here = sum(r["workflow_id"] == wf for r in rows)
+            await MemoryUtils._log_memory_operation(
+                conn,
+                wf,
+                "expire_batch",
+                None,  # memory_id
+                None,  # action_id
+                {
+                    "expired_count_in_workflow": expired_here,
+                    "total_expired_this_run": len(deleted_ids),
+                },
+            )
+    # ────────────── transaction committed ──────────────
+
+    dt = time.time() - t0
+    logger.success(
+        f"Expired-memory sweep removed {len(deleted_ids)} rows "
+        f"across {len(wf_affected)} workflows.",
+        emoji_key="wastebasket",
+        time=dt,
+    )
+    return {
+        "success": True,
+        "data": {
+            "deleted_count": len(deleted_ids),
+            "workflows_affected": sorted(wf_affected),
+        },
+        "processing_time": dt,
+    }
+
+
+async def compute_memory_statistics(
+    workflow_id: Optional[str] = None,  # None → global stats
+    db_path: str = agent_memory_config.db_path,
+) -> Dict[str, Any]:
+    """
+    Compute memory / link statistics.
+    """
+    start_time = time.time()
+    stats: Dict[str, Any] = {"scope": workflow_id or "global"}
+    db = DBConnection(db_path)
+
+    try:
+        async with db.transaction(readonly=True) as conn:
+            # --- base WHERE + params ----------------------------------------
+            where_clause = "WHERE workflow_id = ?" if workflow_id else ""
+            params: list[Any] = [workflow_id] if workflow_id else []
+
+            # --- totals ------------------------------------------------------
+            row = await conn.execute_fetchone(
+                f"SELECT COUNT(*) AS cnt FROM memories {where_clause}", params
+            )
+            total_mem = row["cnt"] if row and row["cnt"] is not None else 0
+            stats["total_memories"] = total_mem
+
+            if total_mem == 0:
+                logger.info(f"No memories found for statistics in scope: {stats['scope']}")
+                return {
+                    "success": True,
+                    "data": stats,
+                    "processing_time": time.time() - start_time,
+                }
+
+            # --- by level ----------------------------------------------------
+            lv_rows = await conn.execute_fetchall(
+                f"SELECT memory_level, COUNT(*) AS c FROM memories {where_clause} GROUP BY memory_level",
+                params,
+            )
+            stats["by_level"] = {r["memory_level"]: r["c"] for r in lv_rows}
+
+            # --- by type -----------------------------------------------------
+            tp_rows = await conn.execute_fetchall(
+                f"SELECT memory_type, COUNT(*) AS c FROM memories {where_clause} GROUP BY memory_type",
+                params,
+            )
+            stats["by_type"] = {r["memory_type"]: r["c"] for r in tp_rows}
+
+            # --- confidence / importance aggregates -------------------------
+            agg_row = await conn.execute_fetchone(
+                f"SELECT AVG(COALESCE(confidence,0)), AVG(COALESCE(importance,0)) FROM memories {where_clause}",
+                params,
+            )
+            stats["confidence_avg"] = round(agg_row[0], 3) if agg_row and agg_row[0] else 0.0
+            stats["importance_avg"] = round(agg_row[1], 2) if agg_row and agg_row[1] else 0.0
+
+            # --- temporal ----------------------------------------------------
+            tm_row = await conn.execute_fetchone(
+                f"SELECT MAX(created_at), MIN(created_at) FROM memories {where_clause}", params
+            )
+            stats["newest_memory_unix"] = tm_row[0] if tm_row else None
+            stats["oldest_memory_unix"] = tm_row[1] if tm_row else None
+
+            # --- link stats --------------------------------------------------
+            link_where = "WHERE m.workflow_id = ?" if workflow_id else ""
+            link_params = params
+            link_tot = await conn.execute_fetchone(
+                f"""
+                SELECT COUNT(*) AS cnt
+                FROM memory_links ml
+                JOIN memories m ON ml.source_memory_id = m.memory_id
+                {link_where}
+                """,
+                link_params,
+            )
+            stats["total_links"] = link_tot["cnt"] if link_tot else 0
+
+            l_rows = await conn.execute_fetchall(
+                f"""
+                SELECT ml.link_type, COUNT(*) AS c
+                FROM memory_links ml
+                JOIN memories m ON ml.source_memory_id = m.memory_id
+                {link_where}
+                GROUP BY ml.link_type
+                """,
+                link_params,
+            )
+            stats["links_by_type"] = {r["link_type"]: r["c"] for r in l_rows}
+
+            # --- tag stats (top-5) ------------------------------------------
+            tag_where = "WHERE wt.workflow_id = ?" if workflow_id else ""
+            tag_rows = await conn.execute_fetchall(
+                f"""
+                SELECT t.name, COUNT(*) AS c
+                FROM tags t
+                JOIN workflow_tags wt ON t.tag_id = wt.tag_id
+                {tag_where}
+                GROUP BY t.tag_id
+                ORDER BY c DESC
+                LIMIT 5
+                """,
+                params,
+            )
+            stats["top_workflow_tags"] = {r["name"]: r["c"] for r in tag_rows}
+
+            # --- workflow status break-down (global only) -------------------
+            if not workflow_id:
+                wf_rows = await conn.execute_fetchall(
+                    "SELECT status, COUNT(*) AS c FROM workflows GROUP BY status"
+                )
+                stats["workflows_by_status"] = {r["status"]: r["c"] for r in wf_rows}
+
+        logger.info(
+            f"Computed memory statistics for scope: {stats['scope']}", emoji_key="bar_chart"
+        )
+        return {
+            "success": True,
+            "data": stats,
+            "processing_time": time.time() - start_time,
+        }
+
+    except Exception as exc:
+        logger.error(f"Failed to compute statistics: {exc}", exc_info=True)
+        raise ToolError(f"Failed to compute statistics: {exc}") from exc
+
+
+async def visualize_reasoning_chain(
+    thought_chain_id: str,
+    output_format: str = "mermaid",  # 'mermaid' | 'json'
+    db_path: str = agent_memory_config.db_path,
+) -> Dict[str, Any]:
+    """
+    Produce a Mermaid diagram or hierarchical JSON for a single thought-chain.
+    """
+    # ───────────────── input validation ─────────────────
+    if not thought_chain_id:
+        raise ToolInputError("Thought chain ID required.", param_name="thought_chain_id")
+
+    valid_formats = {"mermaid", "json"}
+    output_format_lc = (output_format or "mermaid").lower()
+    if output_format_lc not in valid_formats:
+        raise ToolInputError(
+            f"Invalid format. Use one of: {sorted(valid_formats)}",
+            param_name="output_format",
+        )
+
+    t0 = time.time()
+
+    try:
+        # ─────────────── read-only data fetch ───────────────
+        async with DBConnection(db_path).transaction(readonly=True):
+            thought_chain_data = await get_thought_chain(thought_chain_id, db_path=db_path)
+
+        if not thought_chain_data.get("success"):
+            raise ToolError(
+                f"Failed to retrieve thought chain {thought_chain_id} for visualization."
+            )
+
+        # ─────────────── generate visualisation ─────────────
+        visual: str | None = None
+
+        if output_format_lc == "mermaid":
+            visual = await _generate_thought_chain_mermaid(thought_chain_data)
+
+        else:  # json
+            structured = {
+                k: v for k, v in thought_chain_data.items() if k not in {"success", "thoughts"}
+            }
+            child_map: Dict[str | None, list[dict]] = defaultdict(list)
+            for th in thought_chain_data.get("thoughts", []):
+                child_map[th.get("parent_thought_id")].append(th)
+
+            def build(nodes: list[dict]) -> list[dict]:
+                tree = []
+                for node in nodes:
+                    n = dict(node)
+                    kids = child_map.get(node["thought_id"])
+                    if kids:
+                        n["children"] = build(kids)
+                    tree.append(n)
+                return tree
+
+            structured["thought_tree"] = build(child_map.get(None, []))
+            visual = json.dumps(structured, indent=2)
+
+        if visual is None:
+            raise ToolError(
+                f"Failed to generate visualization content for format '{output_format_lc}'."
+            )
+
+        result_data = {
+            "thought_chain_id": thought_chain_id,
+            "title": thought_chain_data.get("title", "Thought Chain"),
+            "visualization": visual,
+            "format": output_format_lc,
+        }
+        logger.info(
+            f"Generated {output_format_lc} visualization for thought chain {thought_chain_id}",
+            emoji_key="projector",
+        )
+        return {
+            "success": True,
+            "data": result_data,
+            "processing_time": time.time() - t0,
+        }
+
+    except (ToolInputError, ToolError):
+        raise
+    except Exception as exc:
+        logger.error(f"Error visualizing thought chain {thought_chain_id}: {exc}", exc_info=True)
+        raise ToolError(f"Failed to visualize thought chain: {exc}") from exc
+
+
+async def visualize_memory_network(
+    workflow_id: Optional[str] = None,
+    center_memory_id: Optional[str] = None,
+    depth: int = 1,
+    max_nodes: int = 30,
+    memory_level: Optional[str] = None,
+    memory_type: Optional[str] = None,
+    output_format: str = "mermaid",
+    db_path: str = agent_memory_config.db_path,
+) -> Dict[str, Any]:
+    """
+    Generates a Mermaid diagram of the memory graph.  All original behaviour,
+    parameters, and return shape are preserved exactly; the sole change is that
+    the query block is now executed inside a read-only snapshot transaction
+    (`DBConnection.transaction(readonly=True)`)
+    """
+    # ------------- validation (unchanged) -------------
+    if not workflow_id and not center_memory_id:
+        raise ToolInputError(
+            "Either workflow_id or center_memory_id must be provided.", param_name="workflow_id"
+        )
+    if output_format.lower() != "mermaid":
+        raise ToolInputError(
+            "Currently only 'mermaid' format is supported.", param_name="output_format"
+        )
+    if depth < 0:
+        raise ToolInputError("Depth cannot be negative.", param_name="depth")
+    if max_nodes <= 0:
+        raise ToolInputError("Max nodes must be positive.", param_name="max_nodes")
+
+    start_time = time.time()
+    selected_memory_ids: set[str] = set()
+    memories_data: dict[str, Any] = {}
+    links_data: list[dict[str, Any]] = []
+
+    try:
+        # ---------- read-only snapshot ----------
+        async with DBConnection(db_path).transaction(readonly=True) as conn:
+            # --- 1. Initial memory selection (unchanged) ---
+            target_workflow_id = workflow_id
+            if center_memory_id:
+                async with conn.execute(
+                    "SELECT workflow_id FROM memories WHERE memory_id = ?", (center_memory_id,)
+                ) as cursor:
+                    center_row = await cursor.fetchone()
+                    if not center_row:
+                        raise ToolInputError(
+                            f"Center memory {center_memory_id} not found.",
+                            param_name="center_memory_id",
+                        )
+                    if not target_workflow_id:
+                        target_workflow_id = center_row["workflow_id"]
+                    elif target_workflow_id != center_row["workflow_id"]:
+                        raise ToolInputError(
+                            f"Center memory {center_memory_id} does not belong to workflow {target_workflow_id}.",
+                            param_name="center_memory_id",
+                        )
+
+                queue, visited = {center_memory_id}, set()
+                for current_depth in range(depth + 1):
+                    if len(selected_memory_ids) >= max_nodes:
+                        break
+                    next_queue: set[str] = set()
+                    ids_to_query = list(queue - visited)
+                    if not ids_to_query:
+                        break
+                    visited.update(ids_to_query)
+                    for node_id in ids_to_query:
+                        if len(selected_memory_ids) < max_nodes:
+                            selected_memory_ids.add(node_id)
+                        else:
+                            break
+                    if current_depth < depth and len(selected_memory_ids) < max_nodes:
+                        placeholders = ", ".join("?" * len(ids_to_query))
+                        neighbor_query = (
+                            f"SELECT target_memory_id AS neighbor_id FROM memory_links "
+                            f"WHERE source_memory_id IN ({placeholders}) "
+                            f"UNION "
+                            f"SELECT source_memory_id AS neighbor_id FROM memory_links "
+                            f"WHERE target_memory_id IN ({placeholders})"
+                        )
+                        async with conn.execute(neighbor_query, ids_to_query * 2) as cursor:
+                            async for row in cursor:
+                                if row["neighbor_id"] not in visited:
+                                    next_queue.add(row["neighbor_id"])
+                    queue = next_queue
+            else:
+                if not target_workflow_id:
+                    raise ToolInputError(
+                        "Workflow ID is required when not specifying a center memory.",
+                        param_name="workflow_id",
+                    )
+                filter_where = ["workflow_id = ?"]
+                params: list[Any] = [target_workflow_id]
+                if memory_level:
+                    filter_where.append("memory_level = ?")
+                    params.append(memory_level.lower())
+                if memory_type:
+                    filter_where.append("memory_type = ?")
+                    params.append(memory_type.lower())
+                now_unix = int(time.time())
+                filter_where.append("(ttl = 0 OR created_at + ttl > ?)")
+                params.append(now_unix)
+                where_sql = " AND ".join(filter_where)
+                query = (
+                    "SELECT memory_id "
+                    "FROM memories "
+                    f"WHERE {where_sql} "
+                    "ORDER BY compute_memory_relevance("
+                    "    importance, confidence, created_at, access_count, last_accessed"
+                    ") DESC "
+                    "LIMIT ?"
+                )
+                params.append(max_nodes)
+
+                # Ensure UDFs are registered before using compute_memory_relevance
+                await _ensure_udfs_registered(conn)
+
+                async with conn.execute(query, params) as cursor:
+                    selected_memory_ids = {row["memory_id"] for row in await cursor.fetchall()}
+
+            # --- early-exit branches & rest of logic (unchanged) ---
+            if not selected_memory_ids:
+                logger.info("No memories selected for visualization based on criteria.")
+                return {
+                    "workflow_id": target_workflow_id,
+                    "center_memory_id": center_memory_id,
+                    "visualization": "```mermaid\ngraph TD\n    NoNodes[No memories found]\n```",
+                    "node_count": 0,
+                    "link_count": 0,
+                    "format": "mermaid",
+                    "processing_time": time.time() - start_time,
+                }
+
+            fetch_ids = list(selected_memory_ids)
+            placeholders = ", ".join("?" * len(fetch_ids))
+            details_query = f"SELECT * FROM memories WHERE memory_id IN ({placeholders})"
+            async with conn.execute(details_query, fetch_ids) as cursor:
+                async for row in cursor:
+                    mem_data = dict(row)
+                    if center_memory_id:
+                        ok = True
+                        if memory_level and mem_data.get("memory_level") != memory_level.lower():
+                            ok = False
+                        if memory_type and mem_data.get("memory_type") != memory_type.lower():
+                            ok = False
+                        if ok or mem_data["memory_id"] == center_memory_id:
+                            memories_data[mem_data["memory_id"]] = mem_data
+                    else:
+                        memories_data[mem_data["memory_id"]] = mem_data
+            final_selected_ids = set(memories_data)
+
+            if center_memory_id and center_memory_id not in final_selected_ids:
+                if center_memory_id in memories_data:
+                    final_selected_ids.add(center_memory_id)
+
+            if not final_selected_ids:
+                logger.info("No memories remained after applying filters for visualization.")
+                return {
+                    "workflow_id": target_workflow_id,
+                    "center_memory_id": center_memory_id,
+                    "visualization": "```mermaid\ngraph TD\n    NoNodes[No memories match filters]\n```",
+                    "node_count": 0,
+                    "link_count": 0,
+                    "format": "mermaid",
+                    "processing_time": time.time() - start_time,
+                }
+
+            final_ids_list = list(final_selected_ids)
+            placeholders = ", ".join("?" * len(final_ids_list))
+            links_query = (
+                "SELECT * FROM memory_links "
+                f"WHERE source_memory_id IN ({placeholders}) "
+                f"AND target_memory_id IN ({placeholders})"
+            )
+            async with conn.execute(links_query, final_ids_list * 2) as cursor:
+                links_data = [dict(row) for row in await cursor.fetchall()]
+
+        # --- diagram generation & return (unchanged) ---
+        mermaid_string = await _generate_memory_network_mermaid(
+            list(memories_data.values()), links_data, center_memory_id
+        )
+        processing_time = time.time() - start_time
+        node_count, link_count = len(memories_data), len(links_data)
+        logger.info(
+            f"Generated memory network visualization ({node_count} nodes, {link_count} links) for workflow {target_workflow_id}",
+            emoji_key="network",
+        )
+        return {
+            "success": True,
+            "data": {
+                "workflow_id": target_workflow_id,
+                "center_memory_id": center_memory_id,
+                "visualization": mermaid_string,
+                "node_count": node_count,
+                "link_count": link_count,
+                "format": "mermaid",
+            },
+            "processing_time": processing_time,
+        }
+
+    except ToolInputError:
+        raise
+    except Exception as e:
+        logger.error(f"Error visualizing memory network: {e}", exc_info=True)
+        raise ToolError(f"Failed to visualize memory network: {e}") from e
+
+
 # ======================================================
 # Cognitive Timeline State Recording
 # ======================================================
 
+
 class CognitiveStateType(str, Enum):
     """Types of cognitive state changes to record in the timeline."""
+
     WORKFLOW_CREATED = "workflow_created"
     WORKFLOW_STATUS_CHANGED = "workflow_status_changed"
     ACTION_STARTED = "action_started"
@@ -1335,40 +2035,38 @@ async def _record_cognitive_timeline_state(
 ) -> str:
     """
     Record a cognitive state change in the timeline.
-    
+
     Args:
         conn: Database connection
         workflow_id: Associated workflow ID (can be None for global states)
         state_type: Type of cognitive state (e.g., 'workflow_created', 'action_started', 'memory_stored')
         state_data: Dictionary containing the state data
         description: Optional human-readable description
-        
+
     Returns:
         The state_id of the recorded state
     """
     state_id = MemoryUtils.generate_id()
     timestamp = time.time()
-    
+
     # Serialize state data to JSON
     try:
         state_data_json = json.dumps(state_data, ensure_ascii=False, default=str)
     except Exception as e:
         logger.warning(f"Failed to serialize cognitive state data: {e}")
-        state_data_json = json.dumps({"error": "Serialization failed", "type": str(type(state_data))})
-    
-    await conn.execute("""
+        state_data_json = json.dumps(
+            {"error": "Serialization failed", "type": str(type(state_data))}
+        )
+
+    await conn.execute(
+        """
         INSERT INTO cognitive_timeline_states (
             state_id, timestamp, state_type, state_data, workflow_id, description
         ) VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        state_id,
-        timestamp,
-        state_type,
-        state_data_json,
-        workflow_id,
-        description
-    ))
-    
+    """,
+        (state_id, timestamp, state_type, state_data_json, workflow_id, description),
+    )
+
     logger.debug(f"Recorded cognitive state: {state_type} for workflow {workflow_id}")
     return state_id
 
@@ -1407,11 +2105,11 @@ class MemoryUtils:
                 return text
             truncated_marker = "[TRUNCATED]"
             truncated_bytes = truncated_marker.encode("utf-8")
-            
+
             # Reserve space for the truncated marker
             if len(truncated_bytes) >= limit:
                 return truncated_marker[:limit]  # Edge case: limit too small
-            
+
             available_space = limit - len(truncated_bytes)
             cut = available_space
             # first, back up over 10xxxxxx continuation bytes
@@ -1429,7 +2127,9 @@ class MemoryUtils:
                 prefix = ""  # could not decode anything
             result = prefix + truncated_marker
             # Double-check our work
-            assert len(result.encode("utf-8")) <= limit, f"Truncation failed: {len(result.encode('utf-8'))} > {limit}"
+            assert len(result.encode("utf-8")) <= limit, (
+                f"Truncation failed: {len(result.encode('utf-8'))} > {limit}"
+            )
             return result
 
         # ------------------------------------------------------------------ #
@@ -1465,7 +2165,7 @@ class MemoryUtils:
         # post-serialization size guard                                      #
         # ------------------------------------------------------------------ #
         if len(json_str.encode("utf-8")) > max_len:
-            # Calculate proper preview size: leave space for JSON structure overhead  
+            # Calculate proper preview size: leave space for JSON structure overhead
             error_structure_overhead = 120  # Rough estimate for JSON structure
             preview_limit = max(50, max_len - error_structure_overhead)  # At least 50 chars
             preview = _truncate_utf8(json_str, preview_limit)
@@ -1654,16 +2354,18 @@ class MemoryUtils:
                     )
                     row = await cursor.fetchone()
                     await cursor.close()
-                    
+
                     if row:
                         tag_ids_to_link.append(row["tag_id"])
                         break  # Success, move to next tag
                     else:
                         # Fallback: SELECT separately (rare case)
-                        cursor = await conn.execute("SELECT tag_id FROM tags WHERE name = ?", (tag_name,))
+                        cursor = await conn.execute(
+                            "SELECT tag_id FROM tags WHERE name = ?", (tag_name,)
+                        )
                         row = await cursor.fetchone()
                         await cursor.close()
-                        
+
                         if row:
                             tag_ids_to_link.append(row["tag_id"])
                             break
@@ -1783,6 +2485,7 @@ async def _store_embedding(conn: aiosqlite.Connection, memory_id: str, text: str
     """
     try:
         from ultimate_mcp_server.services.vector.embeddings import get_embedding_service
+
         embedding_service = get_embedding_service()
         if not embedding_service.client:  # Check if service was initialized correctly (has client)
             logger.warning(
@@ -1862,6 +2565,7 @@ async def _find_similar_memories(
     """
     try:
         from ultimate_mcp_server.services.vector.embeddings import get_embedding_service
+
         embedding_service = get_embedding_service()
         if not embedding_service.client:
             logger.warning("EmbeddingService unavailable; semantic search disabled.")
@@ -1885,14 +2589,14 @@ async def _find_similar_memories(
         async with conn.execute(dimension_check_sql, (q_dim,)) as cur:
             count_row = await cur.fetchone()
             current_dim_count = count_row[0] if count_row else 0
-            
+
         if current_dim_count == 0:
             logger.warning(
                 f"No embeddings found with current model dimension {q_dim}. "
                 "This may indicate an embedding model change. Consider re-generating embeddings."
             )
             return []
-        
+
         sql = """
         SELECT m.memory_id, e.embedding
         FROM   memories  m
@@ -1999,6 +2703,7 @@ async def initialize_memory_system(
         embedding_service_warning: str | None = None
         try:
             from ultimate_mcp_server.services.vector.embeddings import get_embedding_service
+
             es = get_embedding_service()
             if es.client is None:
                 embedding_service_warning = (
@@ -2006,7 +2711,7 @@ async def initialize_memory_system(
                 )
                 logger.error(embedding_service_warning, emoji_key="warning")
                 raise ToolError(embedding_service_warning)
-            
+
             # Test embedding creation with a small sample
             logger.info("Testing embedding service functionality...", emoji_key="test_tube")
             test_embeddings = await es.create_embeddings(["test"])
@@ -2014,13 +2719,13 @@ async def initialize_memory_system(
                 embedding_dim = len(test_embeddings[0])
                 logger.success(
                     f"EmbeddingService fully functional - Model: {es.model_name}, Dimension: {embedding_dim}",
-                    emoji_key="brain"
+                    emoji_key="brain",
                 )
             else:
                 embedding_service_warning = "EmbeddingService test failed - no embeddings generated"
                 logger.error(embedding_service_warning, emoji_key="warning")
                 raise ToolError(embedding_service_warning)
-                
+
             embedding_ok = True
         except Exception as exc:
             if not isinstance(exc, ToolError):
@@ -2040,10 +2745,12 @@ async def initialize_memory_system(
         )
         return {
             "success": True,
-            "message": "Unified Memory System initialised successfully.",
-            "db_path": os.path.abspath(db_path),
-            "embedding_service_functional": embedding_ok,
-            "embedding_service_warning": embedding_service_warning,
+            "data": {
+                "message": "Unified Memory System initialised successfully.",
+                "db_path": os.path.abspath(db_path),
+                "embedding_service_functional": embedding_ok,
+                "embedding_service_warning": embedding_service_warning,
+            },
             "processing_time": dt,
         }
 
@@ -2138,10 +2845,9 @@ async def create_workflow(
                     "tags": tags_list,
                     "primary_thought_chain_id": chain_id,
                     "idempotency_hit": True,
-                    "success": True,
                 }
                 logger.info(f"UMS:create_workflow idem-hit → {wf_id}")
-                return payload
+                return {"success": True, "data": payload}
         # ── 2. Normal create path ────────────────────────────────────────────
         wf_id = MemoryUtils.generate_id()
         chain_id = MemoryUtils.generate_id()
@@ -2247,9 +2953,9 @@ async def create_workflow(
                         "goal": goal,
                         "status": WorkflowStatus.ACTIVE.value,
                         "parent_workflow_id": parent_workflow_id,
-                        "tags": tags or []
+                        "tags": tags or [],
                     },
-                    f"Created workflow: {title_clean}"
+                    f"Created workflow: {title_clean}",
                 )
             except Exception as e:
                 logger.warning(f"Failed to record cognitive state for workflow creation: {e}")
@@ -2267,10 +2973,9 @@ async def create_workflow(
             "tags": tags or [],
             "primary_thought_chain_id": chain_id,
             "idempotency_hit": False,
-            "success": True,
         }
         logger.info(f"UMS:create_workflow created → {wf_id}")
-        return payload
+        return {"success": True, "data": payload}
 
     except ToolInputError:
         raise
@@ -2291,7 +2996,7 @@ async def update_workflow_status(
 ) -> dict[str, Any]:
     """
     Change the *status* of a workflow, optionally append a completion / reflection
-    thought and/or replace its tags. 
+    thought and/or replace its tags.
     """
     try:
         status_enum = WorkflowStatus(status.lower())
@@ -2383,7 +3088,6 @@ async def update_workflow_status(
             "workflow_id": workflow_id,
             "status": status_enum.value,
             "updated_at_iso": safe_format_timestamp(now),
-            "success": True,
         }
         if "completed_at" in cols:
             result["completed_at_iso"] = safe_format_timestamp(now)
@@ -2392,7 +3096,7 @@ async def update_workflow_status(
             f"Workflow {_fmt_id(workflow_id)} status ➜ '{status_enum.value}'",
             emoji_key="arrows_counterclockwise",
         )
-        return result
+        return {"success": True, "data": result}
 
     except ToolInputError:
         raise
@@ -2463,22 +3167,24 @@ async def record_action_start(
         linked_memory_id_existing = linked_mem_row["memory_id"] if linked_mem_row else None
 
         return {
-            "action_id": existing_action_id,
-            "workflow_id": action_data["workflow_id"],
-            "action_type": action_data["action_type"],
-            "title": action_data["title"],
-            "tool_name": action_data.get("tool_name"),
-            "status": action_data[
-                "status"
-            ],  # Should be IN_PROGRESS or a terminal state if it somehow got completed/failed
-            "started_at_unix": action_data["started_at"],
-            "started_at_iso": to_iso_z(action_data["started_at"]),
-            "sequence_number": action_data["sequence_number"],
-            "tags": action_data["tags"],
-            "linked_memory_id": linked_memory_id_existing,
-            "idempotency_hit": True,
             "success": True,
-            "processing_time": time.perf_counter() - t0_perf,
+            "data": {
+                "action_id": existing_action_id,
+                "workflow_id": action_data["workflow_id"],
+                "action_type": action_data["action_type"],
+                "title": action_data["title"],
+                "tool_name": action_data.get("tool_name"),
+                "status": action_data[
+                    "status"
+                ],  # Should be IN_PROGRESS or a terminal state if it somehow got completed/failed
+                "started_at_unix": action_data["started_at"],
+                "started_at_iso": to_iso_z(action_data["started_at"]),
+                "sequence_number": action_data["sequence_number"],
+                "tags": action_data["tags"],
+                "linked_memory_id": linked_memory_id_existing,
+                "idempotency_hit": True,
+                "processing_time": time.perf_counter() - t0_perf,
+            },
         }
 
     try:
@@ -2613,28 +3319,30 @@ async def record_action_start(
                         "title": auto_title,
                         "tool_name": tool_name,
                         "reasoning": reasoning,
-                        "sequence_number": seq_no
+                        "sequence_number": seq_no,
                     },
-                    f"Started action: {auto_title}"
+                    f"Started action: {auto_title}",
                 )
             except Exception as e:
                 logger.warning(f"Failed to record cognitive state for action start: {e}")
 
         return {
-            "action_id": action_id,
-            "workflow_id": workflow_id,
-            "action_type": action_type_enum.value,
-            "title": auto_title,
-            "tool_name": tool_name,
-            "status": ActionStatus.IN_PROGRESS.value,
-            "started_at_unix": now_unix,
-            "started_at_iso": to_iso_z(now_unix),
-            "sequence_number": seq_no,
-            "tags": tags or [],
-            "linked_memory_id": memory_id,
-            "idempotency_hit": False,  # NEW
             "success": True,
-            "processing_time": time.perf_counter() - t0_perf,
+            "data": {
+                "action_id": action_id,
+                "workflow_id": workflow_id,
+                "action_type": action_type_enum.value,
+                "title": auto_title,
+                "tool_name": tool_name,
+                "status": ActionStatus.IN_PROGRESS.value,
+                "started_at_unix": now_unix,
+                "started_at_iso": to_iso_z(now_unix),
+                "sequence_number": seq_no,
+                "tags": tags or [],
+                "linked_memory_id": memory_id,
+                "idempotency_hit": False,
+                "processing_time": time.perf_counter() - t0_perf,
+            },
         }
     except ToolInputError:
         raise
@@ -2822,22 +3530,24 @@ async def record_action_completion(
                         "status": status_enum.value,
                         "had_summary": bool(summary),
                         "had_conclusion_thought": bool(conclusion_thought),
-                        "overflow_artifact_id": overflow_artifact_id
+                        "overflow_artifact_id": overflow_artifact_id,
                     },
-                    f"Completed action with status: {status_enum.value}"
+                    f"Completed action with status: {status_enum.value}",
                 )
             except Exception as e:
                 logger.warning(f"Failed to record cognitive state for action completion: {e}")
 
         return {
-            "action_id": action_id,
-            "workflow_id": workflow_id_for_response,
-            "status": status_enum.value,
-            "completed_at_iso": to_iso_z(now),
-            "conclusion_thought_id": conclusion_thought_id,
-            "overflow_artifact_id": overflow_artifact_id,
             "success": True,
-            "processing_time": time.perf_counter() - start_perf,
+            "data": {
+                "action_id": action_id,
+                "workflow_id": workflow_id_for_response,
+                "status": status_enum.value,
+                "completed_at_iso": to_iso_z(now),
+                "conclusion_thought_id": conclusion_thought_id,
+                "overflow_artifact_id": overflow_artifact_id,
+                "processing_time": time.perf_counter() - start_perf,
+            },
         }
     except ToolInputError:
         raise
@@ -2951,7 +3661,7 @@ async def get_action_details(
                 f"get_action_details: {len(actions)} actions returned in {elapsed:.3f}s",
                 emoji_key="bolt",
             )
-            return {"actions": actions, "success": True, "processing_time": elapsed}
+            return {"success": True, "data": {"actions": actions}, "processing_time": elapsed}
 
     except ToolInputError:
         raise
@@ -3122,17 +3832,20 @@ SUMMARY:
         time=elapsed,  # Pass elapsed as 'time' kwarg
     )
     return {
-        "summary": summary,
-        "context_type": context_type,
-        "compression_ratio": comp_ratio,
-        "processing_time": elapsed,
         "success": True,
+        "data": {
+            "summary": summary,
+            "context_type": context_type,
+            "compression_ratio": comp_ratio,
+            "processing_time": elapsed,
+        },
     }
 
 
 # ======================================================
 # 3.5 Action Dependency Tools
 # ======================================================
+
 
 @with_tool_metrics
 @with_error_handling
@@ -3274,14 +3987,16 @@ async def add_action_dependency(
         )
 
         return {
-            "source_action_id": source_action_id,
-            "target_action_id": target_action_id,
-            "dependency_type": dep_type,
-            "dependency_id": dependency_id,
-            "created_at_unix": now_unix,
-            "created_at_iso": to_iso_z(now_unix),
             "success": True,
-            "processing_time": processing_time,
+            "data": {
+                "source_action_id": source_action_id,
+                "target_action_id": target_action_id,
+                "dependency_type": dep_type,
+                "dependency_id": dependency_id,
+                "created_at_unix": now_unix,
+                "created_at_iso": to_iso_z(now_unix),
+                "processing_time": processing_time,
+            },
         }
 
     except ToolInputError:
@@ -3302,22 +4017,24 @@ async def add_action_dependency(
 async def get_action_dependencies(
     action_id: str,
     *,
-    direction: str = "downstream",   # 'downstream' → children, 'upstream' → parents
+    direction: str = "downstream",  # 'downstream' → children, 'upstream' → parents
     dependency_type: str | None = None,  # filter by dependency edge type (case-insensitive)
-    include_details: bool = False,   # include extra cols + ISO timestamps
+    include_details: bool = False,  # include extra cols + ISO timestamps
     db_path: str = agent_memory_config.db_path,
 ) -> Dict[str, Any]:
     """
     Return the set of actions directly connected to *action_id* via the *dependencies* table.
 
-    • `dependency_type` is normalised (`strip().lower()`) so callers can use any case.  
+    • `dependency_type` is normalised (`strip().lower()`) so callers can use any case.
     • Sequence ordering preserved; timestamps decorated with *_iso when requested.
     """
     # ───── basic validation ─────
     if not action_id:
         raise ToolInputError("Action ID required.", param_name="action_id")
     if direction not in {"downstream", "upstream"}:
-        raise ToolInputError("Direction must be 'downstream' or 'upstream'.", param_name="direction")
+        raise ToolInputError(
+            "Direction must be 'downstream' or 'upstream'.", param_name="direction"
+        )
 
     # normalise dependency_type *exactly* the same way add_action_dependency stores it
     dep_type_norm: str | None = None
@@ -3338,7 +4055,9 @@ async def get_action_dependencies(
     try:
         async with db.transaction(readonly=True) as conn:
             # ─── confirm root action exists ───
-            if not await conn.execute_fetchone("SELECT 1 FROM actions WHERE action_id = ?", (action_id,)):
+            if not await conn.execute_fetchone(
+                "SELECT 1 FROM actions WHERE action_id = ?", (action_id,)
+            ):
                 raise ToolInputError(f"Action {action_id} not found.", param_name="action_id")
 
             # ─── build SELECT list ───
@@ -3386,12 +4105,14 @@ async def get_action_dependencies(
                     related.append(rec)
 
         return {
-            "action_id": action_id,
-            "direction": direction,
-            "dependency_type_applied": dep_type_norm,  # echo back the normalised filter
-            "related_actions": related,
             "success": True,
-            "processing_time": time.perf_counter() - t0,
+            "data": {
+                "action_id": action_id,
+                "direction": direction,
+                "dependency_type_applied": dep_type_norm,  # echo back the normalised filter
+                "related_actions": related,
+                "processing_time": time.perf_counter() - t0,
+            },
         }
 
     except ToolInputError:
@@ -3454,7 +4175,8 @@ async def record_artifact(
             with `"idempotency_hit": True`.
         """
         row = await conn_fetch.execute_fetchone(
-            "SELECT * FROM artifacts WHERE artifact_id = ?", (existing_artifact_id,),
+            "SELECT * FROM artifacts WHERE artifact_id = ?",
+            (existing_artifact_id,),
         )
         if row is None:
             raise ToolError(
@@ -3467,7 +4189,7 @@ async def record_artifact(
         meta_raw = art.get("metadata")
         meta_obj = await MemoryUtils.deserialize(meta_raw)
         if not isinstance(meta_obj, dict):
-            meta_obj = {}                       # legacy NULL / non-dict payloads
+            meta_obj = {}  # legacy NULL / non-dict payloads
         art["metadata"] = meta_obj
 
         # --- tags -----------------------------------------------------------
@@ -3484,7 +4206,7 @@ async def record_artifact(
 
         # --- booleans / convenience casts -----------------------------------
         art["is_output"] = bool(art.get("is_output", False))
-        content_in_db      = art.get("content") is not None
+        content_in_db = art.get("content") is not None
         content_trunc_flag = bool(meta_obj.get("_content_truncated", False))
 
         # --- linked memory ---------------------------------------------------
@@ -3502,21 +4224,23 @@ async def record_artifact(
         linked_mem_id = mem_row["memory_id"] if mem_row else None
 
         return {
-            "artifact_id":          existing_artifact_id,
-            "linked_memory_id":     linked_mem_id,
-            "workflow_id":          art["workflow_id"],
-            "name":                 art["name"],
-            "artifact_type":        art["artifact_type"],
-            "path":                 art.get("path"),
-            "created_at_unix":      art["created_at"],
-            "created_at_iso":       to_iso_z(art["created_at"]),
-            "content_stored_in_db": content_in_db,
-            "content_truncated_in_db": content_trunc_flag,
-            "is_output":            art["is_output"],
-            "tags":                 art["tags"],
-            "idempotency_hit":      True,
-            "success":              True,
-            "processing_time":      time.perf_counter() - t_start,
+            "success": True,
+            "data": {
+                "artifact_id": existing_artifact_id,
+                "linked_memory_id": linked_mem_id,
+                "workflow_id": art["workflow_id"],
+                "name": art["name"],
+                "artifact_type": art["artifact_type"],
+                "path": art.get("path"),
+                "created_at_unix": art["created_at"],
+                "created_at_iso": to_iso_z(art["created_at"]),
+                "content_stored_in_db": content_in_db,
+                "content_truncated_in_db": content_trunc_flag,
+                "is_output": art["is_output"],
+                "tags": art["tags"],
+                "idempotency_hit": True,
+                "processing_time": time.perf_counter() - t_start,
+            },
         }
 
     if idempotency_key:
@@ -3540,13 +4264,13 @@ async def record_artifact(
             # valid UTF-8 -- this avoids the “empty slice → cut[-1]” crash
             cut = content_bytes[:max_len]
             cut_str = ""
-            while True:                                   # exit only on successful decode
+            while True:  # exit only on successful decode
                 try:
-                    cut_str = cut.decode("utf-8")         # 🌱 valid
+                    cut_str = cut.decode("utf-8")  # 🌱 valid
                     break
-                except UnicodeDecodeError:                # 🌱 still split code-point
-                    cut = cut[:-1]                        # drop the last byte and retry
-                    if not cut:                           # degenerate safeguard
+                except UnicodeDecodeError:  # 🌱 still split code-point
+                    cut = cut[:-1]  # drop the last byte and retry
+                    if not cut:  # degenerate safeguard
                         cut_str = ""
                         break
             db_content_to_store = f"{cut_str}[TRUNCATED]"
@@ -3687,21 +4411,23 @@ async def record_artifact(
         time=elapsed,
     )
     return {
-        "artifact_id": artifact_id,
-        "linked_memory_id": linked_mem_id,
-        "workflow_id": workflow_id,
-        "name": name,
-        "artifact_type": art_type_enum.value,
-        "path": path,
-        "created_at_unix": now_unix,
-        "created_at_iso": to_iso_z(now_unix),
-        "content_stored_in_db": db_content_to_store is not None,
-        "content_truncated_in_db": content_truncated,
-        "is_output": is_output,
-        "tags": tags or [],
-        "idempotency_hit": False,
         "success": True,
-        "processing_time": elapsed,
+        "data": {
+            "artifact_id": artifact_id,
+            "linked_memory_id": linked_mem_id,
+            "workflow_id": workflow_id,
+            "name": name,
+            "artifact_type": art_type_enum.value,
+            "path": path,
+            "created_at_unix": now_unix,
+            "created_at_iso": to_iso_z(now_unix),
+            "content_stored_in_db": db_content_to_store is not None,
+            "content_truncated_in_db": content_truncated,
+            "is_output": is_output,
+            "tags": tags or [],
+            "idempotency_hit": False,
+            "processing_time": elapsed,
+        },
     }
 
 
@@ -3733,28 +4459,32 @@ async def record_thought(
     # ─── validation with lenient content handling ───
     if not content or not isinstance(content, str):
         raise ToolInputError("Thought content must be a non-empty string", "content")
-    
+
     # Sanitize complex content before validation
     original_content = content
     if content:
         # Handle JSON-like content that might be malformed plan data
-        if content.strip().startswith('{') and '"tool"' in content:
+        if content.strip().startswith("{") and '"tool"' in content:
             # This is likely a malformed plan JSON being recorded as thought
-            logger.debug(f"Detected JSON-like content in thought, truncating for safety: {content[:100]}...")
+            logger.debug(
+                f"Detected JSON-like content in thought, truncating for safety: {content[:100]}..."
+            )
             content = f"MALFORMED_PLAN_JSON (truncated): {content[:200]}..."
-        
+
         # Ensure content doesn't exceed reasonable length limits for thoughts
         max_thought_length = 2000  # Reasonable limit for thought content
         if len(content) > max_thought_length:
-            logger.debug(f"Truncating long thought content from {len(content)} to {max_thought_length} chars")
-            content = content[:max_thought_length-3] + "..."
-        
+            logger.debug(
+                f"Truncating long thought content from {len(content)} to {max_thought_length} chars"
+            )
+            content = content[: max_thought_length - 3] + "..."
+
         # Additional safety: if content contains complex nested structures, simplify
-        if content.count('{') > 5 or content.count('[') > 5:
+        if content.count("{") > 5 or content.count("[") > 5:
             # Likely complex nested data, create a summary instead
-            content_preview = content[:150].replace('\n', ' ').replace('\r', ' ')
+            content_preview = content[:150].replace("\n", " ").replace("\r", " ")
             content = f"COMPLEX_DATA_SUMMARY: {content_preview}... [Original length: {len(original_content)} chars]"
-    
+
     try:
         thought_type_enum = ThoughtType(thought_type.lower())
     except ValueError as exc:
@@ -3765,8 +4495,8 @@ async def record_thought(
         ) from exc
 
     now_unix = int(time.time())
-    t0_perf  = time.perf_counter()
-    db_main  = DBConnection(db_path)
+    t0_perf = time.perf_counter()
+    db_main = DBConnection(db_path)
 
     # ─── helper: fetch existing for idempotency ───
     async def _existing_payload(c: aiosqlite.Connection, th_id: str, ch_id: str) -> Dict[str, Any]:
@@ -3779,16 +4509,18 @@ async def record_thought(
             (th_id, MemoryType.REASONING_STEP.value),
         )
         return {
-            "thought_id": th_id,
-            "thought_chain_id": ch_id,
-            "thought_type": row["thought_type"],
-            "content": row["content"],
-            "sequence_number": row["sequence_number"],
-            "created_at": to_iso_z(row["created_at"]),
-            "linked_memory_id": mem_row["memory_id"] if mem_row else "",
-            "idempotency_hit": True,
             "success": True,
-            "processing_time": time.perf_counter() - t0_perf,
+            "data": {
+                "thought_id": th_id,
+                "thought_chain_id": ch_id,
+                "thought_type": row["thought_type"],
+                "content": row["content"],
+                "sequence_number": row["sequence_number"],
+                "created_at": to_iso_z(row["created_at"]),
+                "linked_memory_id": mem_row["memory_id"] if mem_row else "",
+                "idempotency_hit": True,
+                "processing_time": time.perf_counter() - t0_perf,
+            },
         }
 
     # ─── inner transactional worker ───
@@ -3808,7 +4540,7 @@ async def record_thought(
             if not key:
                 return
             tbl = MemoryUtils._validate_sql_identifier(table, "table")
-            pk  = _PK[tbl]
+            pk = _PK[tbl]
             sql = (
                 f"SELECT 1 FROM {tbl} WHERE {pk}=?"
                 if tbl == "workflows"
@@ -3816,7 +4548,7 @@ async def record_thought(
             )
             params = (key,) if tbl == "workflows" else (key, workflow_id)
             if await db_conn.execute_fetchone(sql, params) is None:
-                raise ToolInputError(f"{pname.replace('_',' ').title()} not found: {key}", pname)
+                raise ToolInputError(f"{pname.replace('_', ' ').title()} not found: {key}", pname)
 
         await _exists("workflows", workflow_id, "workflow_id")
         await _exists("thoughts", parent_thought_id, "parent_thought_id")
@@ -3849,8 +4581,7 @@ async def record_thought(
         # idempotency check ---------------------------------------------------
         if idempotency_key:
             r = await db_conn.execute_fetchone(
-                "SELECT thought_id FROM thoughts "
-                "WHERE thought_chain_id=? AND idempotency_key=?",
+                "SELECT thought_id FROM thoughts WHERE thought_chain_id=? AND idempotency_key=?",
                 (chain_id, idempotency_key),
             )
             if r:
@@ -3909,9 +4640,7 @@ async def record_thought(
                     f"Thought [{seq_no}] ({thought_type_enum.value.title()}): {content}",
                     MemoryLevel.SEMANTIC.value,
                     MemoryType.REASONING_STEP.value,
-                    7.5
-                    if thought_type_enum in {ThoughtType.GOAL, ThoughtType.DECISION}
-                    else 6.5,
+                    7.5 if thought_type_enum in {ThoughtType.GOAL, ThoughtType.DECISION} else 6.5,
                     1.0,
                     json.dumps(["reasoning", thought_type_enum.value]),
                     now_unix,
@@ -3939,9 +4668,9 @@ async def record_thought(
                     "thought_chain_id": chain_id,
                     "sequence_number": seq_no,
                     "content_preview": content[:200] + "..." if len(content) > 200 else content,
-                    "memory_promoted": bool(linked_mem_id)
+                    "memory_promoted": bool(linked_mem_id),
                 },
-                f"Recorded {thought_type_enum.value} thought"
+                f"Recorded {thought_type_enum.value} thought",
             )
         except Exception as e:
             logger.warning(f"Failed to record cognitive state for thought creation: {e}")
@@ -3971,16 +4700,18 @@ async def record_thought(
 
     # ─── success payload ───
     return {
-        "thought_id": thought_id,
-        "thought_chain_id": chain_id,
-        "thought_type": thought_type_enum.value,
-        "content": content,
-        "sequence_number": seq_no,
-        "created_at": to_iso_z(now_unix),
-        "linked_memory_id": mem_id,  # always non-None (may be "")
-        "idempotency_hit": False,
         "success": True,
-        "processing_time": time.perf_counter() - t0_perf,
+        "data": {
+            "thought_id": thought_id,
+            "thought_chain_id": chain_id,
+            "thought_type": thought_type_enum.value,
+            "content": content,
+            "sequence_number": seq_no,
+            "created_at": to_iso_z(now_unix),
+            "linked_memory_id": mem_id,  # always non-None (may be "")
+            "idempotency_hit": False,
+            "processing_time": time.perf_counter() - t0_perf,
+        },
     }
 
 
@@ -4052,7 +4783,7 @@ async def store_memory(
             "SELECT * FROM memories WHERE memory_id = ?",
             (existing_memory_id,),
         )
-        if mem_row is None:                      # highly unlikely but defensive
+        if mem_row is None:  # highly unlikely but defensive
             raise ToolError(
                 f"Failed to re-fetch existing memory {existing_memory_id} on idempotency hit."
             )
@@ -4081,26 +4812,29 @@ async def store_memory(
         # ─── build return payload ───
         return {
             "success": True,
-            "idempotency_hit": True,
-            "memory_id": existing_memory_id,
-            "workflow_id": wf_id,
-            "memory_level": mem_data["memory_level"],
-            "memory_type": mem_data["memory_type"],
-            "content_preview": (
-                mem_data["content"][:100] + "…" if len(mem_data["content"]) > 100 else mem_data["content"]
-            ),
-            "importance": mem_data["importance"],
-            "confidence": mem_data["confidence"],
-            "created_at": to_iso_z(mem_data["created_at"]),
-            "tags": norm_tags,
-            "embedding_id": mem_data.get("embedding_id"),
-            "linked_action_id": mem_data.get("action_id"),
-            "linked_thought_id": mem_data.get("thought_id"),
-            "linked_artifact_id": mem_data.get("artifact_id"),
-            "suggested_links": [],                    # never recompute on hit
-            "processing_time": time.perf_counter() - t0_perf,
+            "data": {
+                "idempotency_hit": True,
+                "memory_id": existing_memory_id,
+                "workflow_id": wf_id,
+                "memory_level": mem_data["memory_level"],
+                "memory_type": mem_data["memory_type"],
+                "content_preview": (
+                    mem_data["content"][:100] + "…"
+                    if len(mem_data["content"]) > 100
+                    else mem_data["content"]
+                ),
+                "importance": mem_data["importance"],
+                "confidence": mem_data["confidence"],
+                "created_at": to_iso_z(mem_data["created_at"]),
+                "tags": norm_tags,
+                "embedding_id": mem_data.get("embedding_id"),
+                "linked_action_id": mem_data.get("action_id"),
+                "linked_thought_id": mem_data.get("thought_id"),
+                "linked_artifact_id": mem_data.get("artifact_id"),
+                "suggested_links": [],  # never recompute on hit
+                "processing_time": time.perf_counter() - t0_perf,
+            },
         }
-
 
     if idempotency_key:
         async with db.transaction(readonly=True) as conn_check:
@@ -4241,14 +4975,14 @@ async def store_memory(
                     score_map = dict(sims)
 
                     for row in rows:
-                        m_id           = row["memory_id"]
-                        sim            = round(score_map.get(m_id, 0.0), 4)
-                        tgt_type_str   = row["memory_type"]
+                        m_id = row["memory_id"]
+                        sim = round(score_map.get(m_id, 0.0), 4)
+                        tgt_type_str = row["memory_type"]
 
                         # normalise to enum for *consistent* comparisons
                         try:
                             tgt_type_enum: MemoryType = MemoryType(tgt_type_str.lower())
-                        except ValueError:            # corrupted / legacy row
+                        except ValueError:  # corrupted / legacy row
                             tgt_type_enum = MemoryType.TEXT
 
                         # --- relationship inference ---------------------------------
@@ -4263,18 +4997,17 @@ async def store_memory(
 
                         # insight → fact generalises
                         elif (
-                            mem_type_enum == MemoryType.INSIGHT
-                            and tgt_type_enum == MemoryType.FACT
+                            mem_type_enum == MemoryType.INSIGHT and tgt_type_enum == MemoryType.FACT
                         ):
                             link_type_val = LinkType.GENERALIZES.value
 
                         # populate suggestion list
                         suggested_links_new.append(
                             {
-                                "target_memory_id":    m_id,
-                                "target_description":  row["description"],
-                                "target_type":         tgt_type_enum.value,
-                                "similarity":          sim,
+                                "target_memory_id": m_id,
+                                "target_description": row["description"],
+                                "target_type": tgt_type_enum.value,
+                                "similarity": sim,
                                 "suggested_link_type": link_type_val,
                             }
                         )
@@ -4320,9 +5053,9 @@ async def store_memory(
                     "confidence": confidence,
                     "content_preview": content[:200] + "..." if len(content) > 200 else content,
                     "has_embedding": bool(embed_id),
-                    "links_suggested": len(suggested_links_new)
+                    "links_suggested": len(suggested_links_new),
                 },
-                f"Stored {mem_type_enum.value} memory (importance: {importance})"
+                f"Stored {mem_type_enum.value} memory (importance: {importance})",
             )
         except Exception as e:
             logger.warning(f"Failed to record cognitive state for memory storage: {e}")
@@ -4336,22 +5069,24 @@ async def store_memory(
     )
     return {
         "success": True,
-        "idempotency_hit": False,  # NEW
-        "memory_id": memory_id_new,
-        "workflow_id": workflow_id,
-        "memory_level": mem_level_enum.value,
-        "memory_type": mem_type_enum.value,
-        "content_preview": content[:100] + ("…" if len(content) > 100 else ""),
-        "importance": importance,
-        "confidence": confidence,
-        "created_at": to_iso_z(now_unix),
-        "tags": final_tags,
-        "embedding_id": embed_id,
-        "linked_action_id": action_id,
-        "linked_thought_id": thought_id,
-        "linked_artifact_id": artifact_id,
-        "suggested_links": suggested_links_new,
-        "processing_time": elapsed_time,
+        "data": {
+            "idempotency_hit": False,
+            "memory_id": memory_id_new,
+            "workflow_id": workflow_id,
+            "memory_level": mem_level_enum.value,
+            "memory_type": mem_type_enum.value,
+            "content_preview": content[:100] + ("…" if len(content) > 100 else ""),
+            "importance": importance,
+            "confidence": confidence,
+            "created_at": to_iso_z(now_unix),
+            "tags": final_tags,
+            "embedding_id": embed_id,
+            "linked_action_id": action_id,
+            "linked_thought_id": thought_id,
+            "linked_artifact_id": artifact_id,
+            "suggested_links": suggested_links_new,
+            "processing_time": elapsed_time,
+        },
     }
 
 
@@ -4516,14 +5251,17 @@ async def get_memory_by_id(
                         )
 
             _add_iso(mem, ["created_at", "updated_at", "last_accessed"])
-            mem["success"] = True
 
-        mem["processing_time"] = time.time() - t0
+        processing_time = time.time() - t0
         logger.info(
-            f"Memory {_fmt_id(memory_id)} retrieved (links={include_links}, ctx={include_context}) in {mem['processing_time']:.3f}s",
+            f"Memory {_fmt_id(memory_id)} retrieved (links={include_links}, ctx={include_context}) in {processing_time:.3f}s",
             emoji_key="inbox_tray",
         )
-        return mem
+        return {
+            "success": True,
+            "data": mem,
+            "processing_time": processing_time,
+        }
 
     except ToolError as te:  # Catch ToolError if memory expired and was deleted
         # Log as info because it's an expected outcome for expired memory
@@ -4547,19 +5285,21 @@ async def get_memory_metadata(
 ) -> Dict[str, Any]:
     """
     Retrieve the context JSON blob associated with a specific memory.
-    
+
     Args:
         workflow_id: Required workflow scope
         memory_id: Required memory ID
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and the memory's metadata
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if not memory_id or not isinstance(memory_id, str):
         raise ToolInputError("memory_id is required and must be a string.", param_name="memory_id")
 
@@ -4573,45 +5313,43 @@ async def get_memory_metadata(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
 
             # Fetch memory context
             memory_row = await conn.execute_fetchone(
                 "SELECT context FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (memory_id, workflow_id)
+                (memory_id, workflow_id),
             )
-            
+
             if not memory_row:
                 raise ToolInputError(
-                    f"Memory {memory_id} not found in workflow {workflow_id}.", 
-                    param_name="memory_id"
+                    f"Memory {memory_id} not found in workflow {workflow_id}.",
+                    param_name="memory_id",
                 )
-            
+
             # Deserialize the context field
             context_json = memory_row["context"]
             metadata = await MemoryUtils.deserialize(context_json)
-            
+
             # If deserialization fails or returns None, use empty dict
             if metadata is None:
                 metadata = {}
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Retrieved metadata for memory {memory_id} in workflow {workflow_id}",
             emoji_key="gear",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
                 "memory_id": memory_id,
-                "metadata": metadata
+                "metadata": metadata,
+                "processing_time": processing_time,
             },
-            "processing_time": processing_time
         }
 
     except ToolInputError:
@@ -4631,19 +5369,21 @@ async def get_memory_tags(
 ) -> Dict[str, Any]:
     """
     Retrieve the list of tags for a specific memory.
-    
+
     Args:
         workflow_id: Required workflow scope
         memory_id: Required memory ID
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and the memory's tags
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if not memory_id or not isinstance(memory_id, str):
         raise ToolInputError("memory_id is required and must be a string.", param_name="memory_id")
 
@@ -4657,26 +5397,24 @@ async def get_memory_tags(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
 
             # Fetch memory tags
             memory_row = await conn.execute_fetchone(
                 "SELECT tags FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (memory_id, workflow_id)
+                (memory_id, workflow_id),
             )
-            
+
             if not memory_row:
                 raise ToolInputError(
-                    f"Memory {memory_id} not found in workflow {workflow_id}.", 
-                    param_name="memory_id"
+                    f"Memory {memory_id} not found in workflow {workflow_id}.",
+                    param_name="memory_id",
                 )
-            
+
             # Deserialize the tags field
             tags_json = memory_row["tags"]
             tags = await MemoryUtils.deserialize(tags_json)
-            
+
             # Ensure tags is a list
             if tags is None:
                 tags = []
@@ -4688,20 +5426,16 @@ async def get_memory_tags(
                     tags = []
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Retrieved {len(tags)} tags for memory {memory_id} in workflow {workflow_id}",
             emoji_key="tag",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
-            "data": {
-                "memory_id": memory_id,
-                "tags": tags
-            },
-            "processing_time": processing_time
+            "data": {"memory_id": memory_id, "tags": tags, "processing_time": processing_time},
         }
 
     except ToolInputError:
@@ -4722,23 +5456,25 @@ async def update_memory_metadata(
 ) -> Dict[str, Any]:
     """
     Update the entire context JSON blob for a specific memory.
-    
+
     Args:
         workflow_id: Required workflow scope
         memory_id: Required memory ID
         metadata: The new, complete metadata object to store (replaces existing metadata)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and update information
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if not memory_id or not isinstance(memory_id, str):
         raise ToolInputError("memory_id is required and must be a string.", param_name="memory_id")
-    
+
     if not isinstance(metadata, dict):
         raise ToolInputError("metadata must be a dictionary.", param_name="metadata")
 
@@ -4750,18 +5486,16 @@ async def update_memory_metadata(
         serialized_metadata = await MemoryUtils.serialize(metadata)
         if serialized_metadata is None:
             raise ToolInputError("Failed to serialize metadata to JSON.", param_name="metadata")
-        
+
         now = int(time.time())
-        
+
         async with db.transaction() as conn:
             # Validate workflow exists
             workflow_row = await conn.execute_fetchone(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
 
             # Update memory context
             result = await conn.execute(
@@ -4770,15 +5504,15 @@ async def update_memory_metadata(
                 SET context = ?, updated_at = ? 
                 WHERE memory_id = ? AND workflow_id = ?
                 """,
-                (serialized_metadata, now, memory_id, workflow_id)
+                (serialized_metadata, now, memory_id, workflow_id),
             )
-            
+
             if result.rowcount == 0:
                 raise ToolInputError(
-                    f"Memory {memory_id} not found in workflow {workflow_id}.", 
-                    param_name="memory_id"
+                    f"Memory {memory_id} not found in workflow {workflow_id}.",
+                    param_name="memory_id",
                 )
-            
+
             # Log the metadata update operation
             await MemoryUtils._log_memory_operation(
                 conn,
@@ -4786,24 +5520,24 @@ async def update_memory_metadata(
                 "metadata_update",
                 memory_id,
                 None,
-                {"metadata_keys": list(metadata.keys()), "metadata_size": len(serialized_metadata)}
+                {"metadata_keys": list(metadata.keys()), "metadata_size": len(serialized_metadata)},
             )
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Updated metadata for memory {memory_id} in workflow {workflow_id}",
             emoji_key="gear",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
                 "memory_id": memory_id,
-                "updated_at_iso": to_iso_z(now)
+                "updated_at_iso": to_iso_z(now),
+                "processing_time": processing_time,
             },
-            "processing_time": processing_time
         }
 
     except ToolInputError:
@@ -4826,7 +5560,7 @@ async def update_memory_link_metadata(
 ) -> Dict[str, Any]:
     """
     Update the description field of a specific memory_links row with new JSON metadata.
-    
+
     Args:
         workflow_id: Required workflow scope for validation
         source_memory_id: Required source memory ID
@@ -4834,31 +5568,37 @@ async def update_memory_link_metadata(
         link_type: Required link type (case-insensitive)
         metadata: The new, complete metadata object to store in link description
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and update information
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if not source_memory_id or not isinstance(source_memory_id, str):
-        raise ToolInputError("source_memory_id is required and must be a string.", param_name="source_memory_id")
-    
+        raise ToolInputError(
+            "source_memory_id is required and must be a string.", param_name="source_memory_id"
+        )
+
     if not target_memory_id or not isinstance(target_memory_id, str):
-        raise ToolInputError("target_memory_id is required and must be a string.", param_name="target_memory_id")
-    
+        raise ToolInputError(
+            "target_memory_id is required and must be a string.", param_name="target_memory_id"
+        )
+
     if not link_type or not isinstance(link_type, str):
         raise ToolInputError("link_type is required and must be a string.", param_name="link_type")
-    
+
     if not isinstance(metadata, dict):
         raise ToolInputError("metadata must be a dictionary.", param_name="metadata")
 
     ts_start = time.perf_counter()
-    
+
     # Normalize link_type to uppercase for consistency
     normalized_link_type = link_type.upper()
-    
+
     db = DBConnection(db_path)
 
     try:
@@ -4866,36 +5606,34 @@ async def update_memory_link_metadata(
         serialized_metadata = await MemoryUtils.serialize(metadata)
         if serialized_metadata is None:
             raise ToolInputError("Failed to serialize metadata to JSON.", param_name="metadata")
-        
+
         async with db.transaction() as conn:
             # Validate workflow exists
             workflow_row = await conn.execute_fetchone(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
 
             # Validate that both memories belong to the workflow
             source_memory_row = await conn.execute_fetchone(
                 "SELECT 1 FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (source_memory_id, workflow_id)
+                (source_memory_id, workflow_id),
             )
             if not source_memory_row:
                 raise ToolInputError(
                     f"Source memory {source_memory_id} not found in workflow {workflow_id}.",
-                    param_name="source_memory_id"
+                    param_name="source_memory_id",
                 )
 
             target_memory_row = await conn.execute_fetchone(
                 "SELECT 1 FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (target_memory_id, workflow_id)
+                (target_memory_id, workflow_id),
             )
             if not target_memory_row:
                 raise ToolInputError(
                     f"Target memory {target_memory_id} not found in workflow {workflow_id}.",
-                    param_name="target_memory_id"
+                    param_name="target_memory_id",
                 )
 
             # Update memory link metadata
@@ -4905,29 +5643,26 @@ async def update_memory_link_metadata(
                 SET description = ? 
                 WHERE source_memory_id = ? AND target_memory_id = ? AND UPPER(link_type) = ?
                 """,
-                (serialized_metadata, source_memory_id, target_memory_id, normalized_link_type)
+                (serialized_metadata, source_memory_id, target_memory_id, normalized_link_type),
             )
-            
+
             if result.rowcount == 0:
                 raise ToolInputError(
                     f"Memory link from {source_memory_id} to {target_memory_id} with type {normalized_link_type} not found.",
-                    param_name="link_type"
+                    param_name="link_type",
                 )
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Updated link metadata for {source_memory_id} -> {target_memory_id} (type: {normalized_link_type}) in workflow {workflow_id}",
             emoji_key="link",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
-            "success": True,
-            "data": {
-                "message": "Link metadata updated successfully."
-            },
-            "processing_time": processing_time
+            "data": {"message": "Link metadata updated successfully."},
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -4949,37 +5684,41 @@ async def decay_link_strengths(
 ) -> Dict[str, Any]:
     """
     Periodically reduce the strength of older memory links to simulate forgetting.
-    
+
     Args:
-        workflow_id: Optional workflow scope. If provided, decay links where at least 
+        workflow_id: Optional workflow scope. If provided, decay links where at least
                     one linked memory belongs to this workflow
         half_life_days: Time period after which strength decays (default: 14 days)
         decay_factor: Multiplicative decay factor (default: 0.95)
         min_strength_threshold: Links below this strength will be pruned (default: 0.1)
         db_path: Database path
-        
+
     Returns:
         Dict containing decay statistics
     """
     start_time = time.time()
-    
+
     # Input validation
     if workflow_id is not None:
         workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
-    
+
     if half_life_days <= 0:
         raise ToolInputError("half_life_days must be positive", param_name="half_life_days")
-    
+
     if not (0.0 < decay_factor <= 1.0):
         raise ToolInputError("decay_factor must be between 0.0 and 1.0", param_name="decay_factor")
-    
+
     if min_strength_threshold < 0.0:
-        raise ToolInputError("min_strength_threshold cannot be negative", param_name="min_strength_threshold")
-    
-    logger.info(f"Decaying link strengths (half_life: {half_life_days} days, factor: {decay_factor})")
-    
+        raise ToolInputError(
+            "min_strength_threshold cannot be negative", param_name="min_strength_threshold"
+        )
+
+    logger.info(
+        f"Decaying link strengths (half_life: {half_life_days} days, factor: {decay_factor})"
+    )
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction() as conn:
             # Validate workflow exists if provided
@@ -4991,11 +5730,11 @@ async def decay_link_strengths(
                     raise ToolInputError(
                         f"Workflow {workflow_id} not found.", param_name="workflow_id"
                     )
-            
+
             # Calculate cutoff timestamp
             now_unix = int(time.time())
             cutoff_timestamp = now_unix - (half_life_days * 86400)  # 86400 seconds per day
-            
+
             # Build decay query
             if workflow_id:
                 # Decay links where at least one memory belongs to the workflow
@@ -5015,11 +5754,11 @@ async def decay_link_strengths(
                     WHERE created_at < ?
                 """
                 decay_params = (decay_factor, cutoff_timestamp)
-            
+
             # Execute decay update
             decay_result = await conn.execute(decay_sql, decay_params)
             links_updated_count = decay_result.rowcount
-            
+
             # Prune weak links
             if workflow_id:
                 prune_sql = """
@@ -5032,20 +5771,20 @@ async def decay_link_strengths(
             else:
                 prune_sql = "DELETE FROM memory_links WHERE strength < ?"
                 prune_params = (min_strength_threshold,)
-            
+
             # Execute pruning
             prune_result = await conn.execute(prune_sql, prune_params)
             links_pruned_count = prune_result.rowcount
 
         processing_time = time.time() - start_time
-        
+
         scope_msg = f"workflow {_fmt_id(workflow_id)}" if workflow_id else "globally"
         logger.info(
             f"Decayed {links_updated_count} links and pruned {links_pruned_count} weak links {scope_msg}",
             emoji_key="hourglass",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
@@ -5056,10 +5795,10 @@ async def decay_link_strengths(
                     "half_life_days": half_life_days,
                     "decay_factor": decay_factor,
                     "min_strength_threshold": min_strength_threshold,
-                    "cutoff_timestamp": cutoff_timestamp
-                }
+                    "cutoff_timestamp": cutoff_timestamp,
+                },
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -5067,166 +5806,6 @@ async def decay_link_strengths(
     except Exception as e:
         logger.error(f"Error decaying link strengths: {e}", exc_info=True)
         raise ToolError(f"Failed to decay link strengths: {e}") from e
-
-
-@with_tool_metrics
-@with_error_handling
-async def search_semantic_memories(
-    query: str,
-    *,
-    workflow_id: str | None = None,
-    limit: int = 5,
-    threshold: float = agent_memory_config.similarity_threshold,
-    memory_level: str | None = None,
-    memory_type: str | None = None,
-    include_content: bool = True,
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Run an embedding-based semantic search across memories.
-
-    Side-effects
-    ------------
-    • bumps `access_count`
-    • refreshes `last_accessed`
-    • logs the access in `memory_operations`
-
-    Implementation note
-    -------------------
-    We now split the workflow into two passes to avoid taking a write
-    lock when the result-set is empty and to ensure every code-path that
-    *does* write also performs a WAL checkpoint so long-running agents
-    don’t accumulate unbounded WAL files.
-    """
-    # ─────── validation ───────
-    if not query:
-        raise ToolInputError("Search query required.", param_name="query")
-    if limit < 1:
-        raise ToolInputError("Limit must be positive integer.", param_name="limit")
-    if not 0.0 <= threshold <= 1.0:
-        raise ToolInputError("Threshold must be 0.0-1.0.", param_name="threshold")
-    if memory_level:
-        MemoryLevel(memory_level.lower())          # may raise
-    if memory_type:
-        MemoryType(memory_type.lower())
-
-    ts_start = time.perf_counter()
-    db = DBConnection(db_path)
-
-    # ───────────────────────── FIRST PASS – read-only ─────────────────────────
-    async with db.transaction(readonly=True) as conn_r:
-        # optional workflow existence check
-        if workflow_id:
-            if not await conn_r.execute_fetchone(
-                "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
-            ):
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-
-        similar = await _find_similar_memories(
-            conn=conn_r,
-            query_text=query,
-            workflow_id=workflow_id,
-            limit=limit,
-            threshold=threshold,
-            memory_level=memory_level,
-            memory_type=memory_type,
-        )  # → List[(memory_id, score)]
-
-    # nothing matched → fast exit, no writes were taken
-    if not similar:
-        elapsed = time.perf_counter() - ts_start
-        logger.info("Semantic search returned 0 rows.", emoji_key="zzz", time=elapsed)
-        return {
-            "memories": [],
-            "query": query,
-            "workflow_id": workflow_id,
-            "success": True,
-            "processing_time": elapsed,
-        }
-
-    # ───────────────────────── SECOND PASS – write txn ─────────────────────────
-    results: list[dict[str, Any]] = []
-    mem_ids = [mid for mid, _ in similar]
-    score_map = dict(similar)
-
-    async with db.transaction(mode="IMMEDIATE") as conn_w:
-        # hydrate rows
-        ph = ",".join("?" * len(mem_ids))
-        cols = (
-            "memory_id, workflow_id, description, memory_type, memory_level, "
-            "importance, confidence, created_at, updated_at, last_accessed, "
-            "access_count, ttl, tags, action_id, thought_id, artifact_id"
-            + (", content" if include_content else "")
-        )
-        rows = await conn_w.execute_fetchall(
-            f"SELECT {cols} FROM memories WHERE memory_id IN ({ph})", mem_ids
-        )
-
-        # keep original similarity ordering
-        for r in sorted(rows, key=lambda x: score_map[x['memory_id']], reverse=True):
-            d = dict(r)
-            d["similarity"] = round(score_map[d["memory_id"]], 4)
-            d["tags"] = await MemoryUtils.deserialize(d.get("tags"))
-            results.append(d)
-
-        # bump access stats
-        now_unix = int(time.time())
-        await conn_w.executemany(
-            "UPDATE memories SET last_accessed = ?, "
-            "access_count = COALESCE(access_count,0)+1 WHERE memory_id = ?",
-            [(now_unix, m) for m in mem_ids],
-        )
-
-        # batch operation logs
-        log_rows = [
-            (
-                MemoryUtils.generate_id(),
-                r["workflow_id"],
-                r["memory_id"],
-                None,
-                "semantic_access",
-                await MemoryUtils.serialize({"query": query, "score": score_map[r["memory_id"]]}),
-                now_unix,
-            )
-            for r in rows
-        ]
-        await conn_w.executemany(
-            """
-            INSERT INTO memory_operations
-                (operation_log_id, workflow_id, memory_id, action_id,
-                 operation, operation_data, timestamp)
-            VALUES (?,?,?,?,?,?,?)
-            """,
-            log_rows,
-        )
-
-        # explicit checkpoint to keep WAL size bounded
-        await conn_w.execute("PRAGMA wal_checkpoint(PASSIVE);")
-
-    # ─────── timestamp prettification ───────
-    def _iso(m: dict, k: str) -> None:
-        if (ts := m.get(k)) is not None:
-            m[f"{k}_iso"] = safe_format_timestamp(ts)
-
-    for m in results:
-        for k in ("created_at", "updated_at", "last_accessed"):
-            _iso(m, k)
-
-    elapsed = time.perf_counter() - ts_start
-    logger.info(
-        f"Semantic search → {len(results)} memories for '{query[:50]}…'",
-        emoji_key="mag",
-        time=elapsed,
-    )
-    return {
-        "memories": results,
-        "query": query,
-        "workflow_id": workflow_id,
-        "success": True,
-        "processing_time": elapsed,
-    }
 
 
 @with_tool_metrics
@@ -5243,7 +5822,7 @@ async def get_similar_memories(
 ) -> Dict[str, Any]:
     """
     Find memories semantically similar to a given source memory.
-    
+
     Args:
         workflow_id: Required for scoping and ensuring the source memory belongs to this workflow
         memory_id: The ID of the source memory to find similar items for
@@ -5252,26 +5831,30 @@ async def get_similar_memories(
         memory_level: Optional filter for memory level (e.g., "semantic")
         memory_type: Optional filter for memory type (e.g., "fact")
         db_path: Database path
-        
+
     Returns:
         Dict containing success status, source memory info, and similar memories list
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if not memory_id or not isinstance(memory_id, str):
         raise ToolInputError("memory_id is required and must be a string.", param_name="memory_id")
-    
+
     if k <= 0:
         raise ToolInputError("k must be positive.", param_name="k")
-    
+
     if threshold < 0.0 or threshold > 1.0:
         raise ToolInputError("threshold must be between 0.0 and 1.0.", param_name="threshold")
-    
+
     if memory_level and not isinstance(memory_level, str):
-        raise ToolInputError("memory_level must be a string if provided.", param_name="memory_level")
-    
+        raise ToolInputError(
+            "memory_level must be a string if provided.", param_name="memory_level"
+        )
+
     if memory_type and not isinstance(memory_type, str):
         raise ToolInputError("memory_type must be a string if provided.", param_name="memory_type")
 
@@ -5286,9 +5869,7 @@ async def get_similar_memories(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
 
             # Fetch source memory
             source_memory_row = await conn.execute_fetchone(
@@ -5298,37 +5879,36 @@ async def get_similar_memories(
                 FROM memories 
                 WHERE memory_id = ? AND workflow_id = ?
                 """,
-                (memory_id, workflow_id)
+                (memory_id, workflow_id),
             )
-            
+
             if not source_memory_row:
                 raise ToolInputError(
-                    f"Memory {memory_id} not found in workflow {workflow_id}.", 
-                    param_name="memory_id"
+                    f"Memory {memory_id} not found in workflow {workflow_id}.",
+                    param_name="memory_id",
                 )
-            
+
             source_memory = dict(source_memory_row)
-            
+
             # Create query text from source memory content and description
             query_parts = []
             if source_memory.get("content"):
                 query_parts.append(source_memory["content"])
             if source_memory.get("description"):
                 query_parts.append(source_memory["description"])
-            
+
             if not query_parts:
-                logger.warning(f"Source memory {memory_id} has no content or description for similarity search")
+                logger.warning(
+                    f"Source memory {memory_id} has no content or description for similarity search"
+                )
                 return {
                     "success": True,
-                    "data": {
-                        "source_memory_id": memory_id,
-                        "similar_memories": []
-                    },
-                    "processing_time": time.perf_counter() - ts_start
+                    "data": {"source_memory_id": memory_id, "similar_memories": []},
+                    "processing_time": time.perf_counter() - ts_start,
                 }
-            
+
             query_text = " ".join(query_parts)
-            
+
             # Find similar memories using the existing helper function
             # Add 1 to limit to account for potentially including source memory in results
             similar_results = await _find_similar_memories(
@@ -5340,26 +5920,22 @@ async def get_similar_memories(
                 memory_level=memory_level,
                 memory_type=memory_type,
             )
-            
+
             # Filter out the source memory from results
             filtered_similar = [
-                (mem_id, score) for mem_id, score in similar_results 
-                if mem_id != memory_id
+                (mem_id, score) for mem_id, score in similar_results if mem_id != memory_id
             ][:k]
-            
+
             if not filtered_similar:
                 return {
                     "success": True,
-                    "data": {
-                        "source_memory_id": memory_id,
-                        "similar_memories": []
-                    },
-                    "processing_time": time.perf_counter() - ts_start
+                    "data": {"source_memory_id": memory_id, "similar_memories": []},
+                    "processing_time": time.perf_counter() - ts_start,
                 }
-            
+
             # Fetch details for similar memories
             similar_memory_ids = [mem_id for mem_id, _ in filtered_similar]
-            
+
             placeholders = ",".join("?" * len(similar_memory_ids))
             similar_details_rows = await conn.execute_fetchall(
                 f"""
@@ -5368,48 +5944,48 @@ async def get_similar_memories(
                 FROM memories 
                 WHERE memory_id IN ({placeholders})
                 """,
-                similar_memory_ids
+                similar_memory_ids,
             )
-            
+
             # Build the response with similar memories in order of similarity
             similar_memories = []
             for mem_id, similarity_score in filtered_similar:
                 # Find the corresponding row
                 memory_row = next(
-                    (row for row in similar_details_rows if row["memory_id"] == mem_id), 
-                    None
+                    (row for row in similar_details_rows if row["memory_id"] == mem_id), None
                 )
                 if memory_row:
                     content = memory_row["content"] if memory_row["content"] else ""
                     content_preview = content[:100] + "..." if len(content) > 100 else content
-                    
-                    similar_memories.append({
-                        "memory_id": mem_id,
-                        "similarity": round(similarity_score, 4),
-                        "description": memory_row["description"],
-                        "memory_type": memory_row["memory_type"],
-                        "memory_level": memory_row["memory_level"],
-                        "content_preview": content_preview,
-                        "importance": memory_row["importance"],
-                        "confidence": memory_row["confidence"],
-                        "created_at_iso": to_iso_z(memory_row["created_at"] if memory_row["created_at"] else 0)
-                    })
+
+                    similar_memories.append(
+                        {
+                            "memory_id": mem_id,
+                            "similarity": round(similarity_score, 4),
+                            "description": memory_row["description"],
+                            "memory_type": memory_row["memory_type"],
+                            "memory_level": memory_row["memory_level"],
+                            "content_preview": content_preview,
+                            "importance": memory_row["importance"],
+                            "confidence": memory_row["confidence"],
+                            "created_at_iso": to_iso_z(
+                                memory_row["created_at"] if memory_row["created_at"] else 0
+                            ),
+                        }
+                    )
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Found {len(similar_memories)} similar memories for memory {memory_id} in workflow {workflow_id}",
             emoji_key="mag_right",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
-            "data": {
-                "source_memory_id": memory_id,
-                "similar_memories": similar_memories
-            },
-            "processing_time": processing_time
+            "data": {"source_memory_id": memory_id, "similar_memories": similar_memories},
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -5431,35 +6007,37 @@ async def query_graph_by_link_type(
 ) -> Dict[str, Any]:
     """
     Query the memory graph for all links of a specific type within a workflow.
-    
+
     Args:
         workflow_id: Required workflow scope
         link_type: Required link type (e.g., "CAUSAL", "CONTRADICTS") - case-insensitive
         limit: Max number of linked pairs to return (default: 100)
         offset: For pagination (default: 0)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and linked memory pairs
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if not link_type or not isinstance(link_type, str):
         raise ToolInputError("link_type is required and must be a string.", param_name="link_type")
-    
+
     if limit <= 0:
         raise ToolInputError("limit must be positive.", param_name="limit")
-    
+
     if offset < 0:
         raise ToolInputError("offset must be non-negative.", param_name="offset")
 
     ts_start = time.perf_counter()
-    
+
     # Normalize link_type to uppercase for consistency
     normalized_link_type = link_type.upper()
-    
+
     db = DBConnection(db_path)
 
     try:
@@ -5469,9 +6047,7 @@ async def query_graph_by_link_type(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
 
             # First get total count for pagination info
             count_sql = """
@@ -5482,12 +6058,12 @@ async def query_graph_by_link_type(
                 WHERE m_source.workflow_id = ? AND m_target.workflow_id = ? 
                 AND UPPER(ml.link_type) = ?
             """
-            
+
             count_row = await conn.execute_fetchone(
                 count_sql, (workflow_id, workflow_id, normalized_link_type)
             )
             total_found = count_row["total"] if count_row else 0
-            
+
             if total_found == 0:
                 return {
                     "success": True,
@@ -5496,9 +6072,9 @@ async def query_graph_by_link_type(
                         "pairs": [],
                         "total_found": 0,
                         "limit": limit,
-                        "offset": offset
+                        "offset": offset,
                     },
-                    "processing_time": time.perf_counter() - ts_start
+                    "processing_time": time.perf_counter() - ts_start,
                 }
 
             # Query for the actual links
@@ -5513,31 +6089,35 @@ async def query_graph_by_link_type(
                 ORDER BY ml.created_at DESC
                 LIMIT ? OFFSET ?
             """
-            
+
             links_rows = await conn.execute_fetchall(
                 links_sql, (workflow_id, workflow_id, normalized_link_type, limit, offset)
             )
-            
+
             # Format the results
             pairs = []
             for row in links_rows:
-                pairs.append({
-                    "source_memory_id": row["source_memory_id"],
-                    "target_memory_id": row["target_memory_id"],
-                    "strength": row["strength"],
-                    "link_description": row["link_description"],
-                    "link_created_at_iso": to_iso_z(row["link_created_at"]) if row["link_created_at"] else None
-                })
+                pairs.append(
+                    {
+                        "source_memory_id": row["source_memory_id"],
+                        "target_memory_id": row["target_memory_id"],
+                        "strength": row["strength"],
+                        "link_description": row["link_description"],
+                        "link_created_at_iso": to_iso_z(row["link_created_at"])
+                        if row["link_created_at"]
+                        else None,
+                    }
+                )
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Found {len(pairs)} '{normalized_link_type}' links in workflow {workflow_id} "
             f"(total: {total_found}, offset: {offset})",
             emoji_key="link",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
@@ -5545,9 +6125,9 @@ async def query_graph_by_link_type(
                 "pairs": pairs,
                 "total_found": total_found,
                 "limit": limit,
-                "offset": offset
+                "offset": offset,
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -5568,59 +6148,63 @@ async def get_contradictions(
 ) -> Dict[str, Any]:
     """
     Server-side detection of contradictory memory pairs within a workflow.
-    
+
     Args:
         workflow_id: Required workflow scope
         limit: Max contradictions to return (default: 20)
         include_resolved: Whether to include already resolved contradictions (default: False)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and list of contradictory memory pairs
     """
     # Validation
     if not workflow_id or not isinstance(workflow_id, str):
-        raise ToolInputError("workflow_id is required and must be a string.", param_name="workflow_id")
-    
+        raise ToolInputError(
+            "workflow_id is required and must be a string.", param_name="workflow_id"
+        )
+
     if limit <= 0:
         raise ToolInputError("limit must be positive.", param_name="limit")
 
     ts_start = time.perf_counter()
-    
+
     try:
         contradictions_found = []
-        
+
         # Step 1: Find explicit CONTRADICTS links
         contradicts_result = await query_graph_by_link_type(
             workflow_id=workflow_id,
             link_type="CONTRADICTS",
             limit=limit * 2,  # Get more to account for filtering
             offset=0,
-            db_path=db_path
+            db_path=db_path,
         )
-        
+
         if contradicts_result.get("success", False):
             explicit_pairs = contradicts_result.get("data", {}).get("pairs", [])
-            
+
             for pair in explicit_pairs:
                 # For now, we'll include all explicit links since we don't have
                 # get_memory_link_metadata implemented yet. In the future, this
                 # would check for resolved_at timestamp when include_resolved=False
-                
-                contradictions_found.append({
-                    "memory_id_a": pair["source_memory_id"],
-                    "memory_id_b": pair["target_memory_id"],
-                    "reason": "explicit_link",
-                    "details": {
-                        "link_description": pair.get("link_description"),
-                        "strength": pair.get("strength"),
-                        "link_created_at": pair.get("link_created_at_iso")
+
+                contradictions_found.append(
+                    {
+                        "memory_id_a": pair["source_memory_id"],
+                        "memory_id_b": pair["target_memory_id"],
+                        "reason": "explicit_link",
+                        "details": {
+                            "link_description": pair.get("link_description"),
+                            "strength": pair.get("strength"),
+                            "link_created_at": pair.get("link_created_at_iso"),
+                        },
                     }
-                })
-                
+                )
+
                 if len(contradictions_found) >= limit:
                     break
-        
+
         # Step 2: Simple negation heuristic on recent memories (if we haven't hit limit)
         if len(contradictions_found) < limit:
             try:
@@ -5632,83 +6216,97 @@ async def get_contradictions(
                     sort_order="DESC",
                     limit=50,  # Check last 50 memories
                     include_content=True,
-                    db_path=db_path
+                    db_path=db_path,
                 )
-                
+
                 if recent_memories_result.get("success", False):
                     memories = recent_memories_result.get("data", {}).get("memories", [])
-                    
+
                     # Track processed pairs to avoid duplicates
                     processed_pairs = set()
-                    
+
                     for i, mem_i in enumerate(memories):
                         if len(contradictions_found) >= limit:
                             break
-                            
-                        for _j, mem_j in enumerate(memories[i+1:], i+1):
+
+                        for _j, mem_j in enumerate(memories[i + 1 :], i + 1):
                             if len(contradictions_found) >= limit:
                                 break
-                                
+
                             # Create a canonical pair ID to avoid duplicates
-                            pair_id = tuple(sorted([mem_i.get("memory_id", ""), mem_j.get("memory_id", "")]))
+                            pair_id = tuple(
+                                sorted([mem_i.get("memory_id", ""), mem_j.get("memory_id", "")])
+                            )
                             if pair_id in processed_pairs:
                                 continue
                             processed_pairs.add(pair_id)
-                            
+
                             # Simple negation heuristic
                             content_i = (mem_i.get("content") or "").lower()
                             content_j = (mem_j.get("content") or "").lower()
-                            
+
                             if not content_i or not content_j:
                                 continue
-                            
+
                             # Check for negation patterns
-                            has_negation_i = any(neg in content_i for neg in [" not ", " no ", " never ", " cannot ", " can't "])
-                            has_negation_j = any(neg in content_j for neg in [" not ", " no ", " never ", " cannot ", " can't "])
-                            
+                            has_negation_i = any(
+                                neg in content_i
+                                for neg in [" not ", " no ", " never ", " cannot ", " can't "]
+                            )
+                            has_negation_j = any(
+                                neg in content_j
+                                for neg in [" not ", " no ", " never ", " cannot ", " can't "]
+                            )
+
                             # Look for overlapping concepts between negated and positive statements
                             if has_negation_i or has_negation_j:
                                 # Get significant words (simple approach)
                                 words_i = set(word for word in content_i.split() if len(word) > 3)
                                 words_j = set(word for word in content_j.split() if len(word) > 3)
-                                
+
                                 # Check for significant word overlap
                                 overlap = words_i.intersection(words_j)
                                 if len(overlap) >= 2:  # At least 2 overlapping significant words
-                                    contradictions_found.append({
-                                        "memory_id_a": mem_i.get("memory_id"),
-                                        "memory_id_b": mem_j.get("memory_id"),
-                                        "reason": "negation_heuristic_v1",
-                                        "details": {
-                                            "snippet_a": content_i[:50] + ("..." if len(content_i) > 50 else ""),
-                                            "snippet_b": content_j[:50] + ("..." if len(content_j) > 50 else ""),
-                                            "overlapping_words": list(overlap)[:5]  # Show first 5 overlapping words
+                                    contradictions_found.append(
+                                        {
+                                            "memory_id_a": mem_i.get("memory_id"),
+                                            "memory_id_b": mem_j.get("memory_id"),
+                                            "reason": "negation_heuristic_v1",
+                                            "details": {
+                                                "snippet_a": content_i[:50]
+                                                + ("..." if len(content_i) > 50 else ""),
+                                                "snippet_b": content_j[:50]
+                                                + ("..." if len(content_j) > 50 else ""),
+                                                "overlapping_words": list(overlap)[
+                                                    :5
+                                                ],  # Show first 5 overlapping words
+                                            },
                                         }
-                                    })
-                                    
+                                    )
+
             except Exception as e:
                 logger.warning(f"Error in negation heuristic analysis: {e}")
                 # Continue without heuristic results
-        
+
         # Limit final results
         contradictions_found = contradictions_found[:limit]
-        
+
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Found {len(contradictions_found)} contradictions in workflow {workflow_id}",
             emoji_key="warning",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
                 "contradictions_found": contradictions_found,
                 "total_found": len(contradictions_found),
-                "include_resolved": include_resolved
+                "include_resolved": include_resolved,
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -5990,9 +6588,11 @@ async def hybrid_search_memories(
         emoji_key="sparkles",
     )
     return {
-        "memories": memories,
-        "total_candidates_considered": total_considered,
         "success": True,
+        "data": {
+            "memories": memories,
+            "total_candidates_considered": total_considered,
+        },
         "processing_time": proc_time,
     }
 
@@ -6106,7 +6706,6 @@ async def create_memory_link(
             "description": description or "",
             "created_at_unix": now_unix,
             "created_at_iso": to_iso_z(now_unix),
-            "success": True,
             "processing_time": elapsed,
         }
         logger.info(
@@ -6114,7 +6713,11 @@ async def create_memory_link(
             emoji_key="link",
             time=elapsed,
         )
-        return result
+        return {
+            "success": True,
+            "data": result,
+            "processing_time": result.pop("processing_time"),
+        }
 
     except ToolInputError:
         raise
@@ -6138,7 +6741,7 @@ async def query_memories(
     min_confidence: float | None = None,
     min_created_at_unix: int | None = None,
     max_created_at_unix: int | None = None,
-    sort_by: str = "relevance",     # relevance, importance, created_at …
+    sort_by: str = "relevance",  # relevance, importance, created_at …
     sort_order: str = "DESC",
     include_content: bool = True,
     include_links: bool = False,
@@ -6159,11 +6762,11 @@ async def query_memories(
     # ────────── validation ──────────
     SORTABLE_COLUMNS: dict[str, str] = {
         # user input  →  actual SQL expression / qualified column
-        "relevance":   "relevance",
-        "importance":  "m.importance",
-        "created_at":  "m.created_at",
-        "updated_at":  "m.updated_at",
-        "confidence":  "m.confidence",
+        "relevance": "relevance",
+        "importance": "m.importance",
+        "created_at": "m.created_at",
+        "updated_at": "m.updated_at",
+        "confidence": "m.confidence",
         "last_accessed": "m.last_accessed",
         "access_count": "m.access_count",
     }
@@ -6283,15 +6886,13 @@ async def query_memories(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             ):
                 raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
-            
+
             # Ensure UDFs are registered before using compute_memory_relevance
             await _ensure_udfs_registered(conn)
 
         total_matching = (await conn.execute_fetchone(count_sql, params + fts_params))[0]
 
-        rows = await conn.execute_fetchall(
-            paginated_sql, params + fts_params + [limit, offset]
-        )
+        rows = await conn.execute_fetchall(paginated_sql, params + fts_params + [limit, offset])
 
         memories: list[dict[str, Any]] = []
         now_unix = int(time.time())
@@ -6311,10 +6912,10 @@ async def query_memories(
             )
             op_rows.append(
                 (
-                    MemoryUtils.generate_id(),        # operation_log_id
+                    MemoryUtils.generate_id(),  # operation_log_id
                     mem["workflow_id"],
                     mem["memory_id"],
-                    None,                             # action_id
+                    None,  # action_id
                     "query_access",
                     op_data_serialised,
                     now_unix,
@@ -6379,9 +6980,11 @@ async def query_memories(
     )
 
     return {
-        "memories": memories,
-        "total_matching_count": total_matching,
         "success": True,
+        "data": {
+            "memories": memories,
+            "total_matching_count": total_matching,
+        },
         "processing_time": elapsed,
     }
 
@@ -6509,9 +7112,11 @@ async def list_workflows(
                 emoji_key="scroll",
             )
             return {
-                "workflows": workflows,
-                "total_count": total_count,
                 "success": True,
+                "data": {
+                    "workflows": workflows,
+                    "total_count": total_count,
+                },
             }
 
     except ToolInputError:
@@ -6662,7 +7267,7 @@ async def get_workflow_details(
                 details["memories_sample"] = []
                 # Ensure UDFs are registered before using compute_memory_relevance
                 await _ensure_udfs_registered(conn)
-                
+
                 async with conn.execute(
                     """
                     SELECT memory_id, content, memory_type, memory_level,
@@ -6744,9 +7349,7 @@ async def get_workflow_details(
 
             # ISO decoration for cognitive_states was handled inside its loop.
 
-            details["success"] = True
             processing_time = time.perf_counter() - t0_perf
-            details["processing_time_seconds"] = round(processing_time, 4)
 
             logger.info(
                 f"Workflow {workflow_id} hydrated. Actions: {len(details.get('actions', []))}, "
@@ -6756,7 +7359,11 @@ async def get_workflow_details(
                 f"Time: {processing_time:.3f}s",
                 emoji_key="books",
             )
-            return details
+            return {
+                "success": True,
+                "data": details,
+                "processing_time": processing_time,
+            }
 
     except ToolInputError:
         raise
@@ -6774,37 +7381,33 @@ async def get_workflow_metadata(
 ) -> Dict[str, Any]:
     """
     Retrieve the metadata JSON blob for a specific workflow.
-    
+
     Args:
         workflow_id: Required workflow ID
         db_path: Database path
-        
+
     Returns:
         Dict containing workflow metadata
     """
     start_time = time.time()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
-    
+
     logger.info(f"Getting metadata for workflow {_fmt_id(workflow_id)}")
-    
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction(readonly=True) as conn:
             # Get workflow metadata
             row = await conn.execute_fetchone(
-                "SELECT metadata FROM workflows WHERE workflow_id = ?", 
-                (workflow_id,)
+                "SELECT metadata FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
-            
+
             if not row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", 
-                    param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Deserialize metadata
             try:
                 metadata_json = row.get("metadata")
@@ -6816,20 +7419,17 @@ async def get_workflow_metadata(
                 metadata = {}
 
         processing_time = time.time() - start_time
-        
+
         logger.info(
             f"Retrieved metadata for workflow {_fmt_id(workflow_id)}",
             emoji_key="package",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
-            "data": {
-                "workflow_id": workflow_id,
-                "metadata": metadata
-            },
-            "processing_time": processing_time
+            "data": {"workflow_id": workflow_id, "metadata": metadata},
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -6849,76 +7449,68 @@ async def update_workflow_metadata(
 ) -> Dict[str, Any]:
     """
     Update the entire metadata JSON blob for a specific workflow.
-    
+
     Args:
         workflow_id: Required workflow ID
         metadata: The new, complete metadata object to replace existing metadata
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and update information
     """
     start_time = time.time()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
-    
+
     if not isinstance(metadata, dict):
         raise ToolInputError("metadata must be a dictionary.", param_name="metadata")
-    
+
     logger.info(f"Updating metadata for workflow {_fmt_id(workflow_id)}")
-    
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction() as conn:
             # Verify workflow exists first
             existing_row = await conn.execute_fetchone(
-                "SELECT 1 FROM workflows WHERE workflow_id = ?", 
-                (workflow_id,)
+                "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
-            
+
             if not existing_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", 
-                    param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Serialize the metadata
             try:
                 serialized_metadata = await MemoryUtils.serialize(metadata)
             except Exception as e:
                 raise ToolInputError(
-                    f"Failed to serialize metadata: {e}", 
-                    param_name="metadata"
+                    f"Failed to serialize metadata: {e}", param_name="metadata"
                 ) from e
-            
+
             # Update the workflow
             now = int(time.time())
-            
+
             result = await conn.execute(
                 "UPDATE workflows SET metadata = ?, updated_at = ?, last_active = ? WHERE workflow_id = ?",
-                (serialized_metadata, now, now, workflow_id)
+                (serialized_metadata, now, now, workflow_id),
             )
-            
+
             if result.rowcount == 0:
                 raise ToolError(f"Failed to update workflow {workflow_id} metadata")
 
         processing_time = time.time() - start_time
-        
+
         logger.info(
             f"Updated metadata for workflow {_fmt_id(workflow_id)}",
             emoji_key="package",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
-            "data": {
-                "workflow_id": workflow_id,
-                "updated_at_iso": to_iso_z(now)
-            },
-            "processing_time": processing_time
+            "data": {"workflow_id": workflow_id, "updated_at_iso": to_iso_z(now)},
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -6929,6 +7521,7 @@ async def update_workflow_metadata(
 
 
 # --- 9. Action Details ---
+
 
 @with_tool_metrics
 @with_error_handling
@@ -6974,6 +7567,7 @@ async def get_recent_actions(
                 param_name="status",
             ) from e
 
+    t0 = time.perf_counter()
     db = DBConnection(db_path)
 
     def _add_iso(obj: Dict[str, Any], keys: Sequence[str]) -> None:
@@ -7048,10 +7642,13 @@ async def get_recent_actions(
                 emoji_key="rewind",
             )
             return {
-                "workflow_id": workflow_id,
-                "workflow_title": workflow_title,
-                "actions": actions,
                 "success": True,
+                "data": {
+                    "workflow_id": workflow_id,
+                    "workflow_title": workflow_title,
+                    "actions": actions,
+                },
+                "processing_time": time.perf_counter() - t0,
             }
 
     except ToolInputError:
@@ -7094,6 +7691,7 @@ async def get_artifacts(
                 param_name="artifact_type",
             ) from e
 
+    t0 = time.perf_counter()
     db = DBConnection(db_path)
 
     def _add_iso(obj: Dict[str, Any], keys: Sequence[str]) -> None:
@@ -7166,13 +7764,21 @@ async def get_artifacts(
                 f"Fetched {len(artifacts)} artifacts for workflow {workflow_id}",
                 emoji_key="open_file_folder",
             )
-            return {"workflow_id": workflow_id, "artifacts": artifacts, "success": True}
+            return {
+                "success": True,
+                "data": {
+                    "workflow_id": workflow_id,
+                    "artifacts": artifacts,
+                },
+                "processing_time": time.perf_counter() - t0,
+            }
 
     except ToolInputError:
         raise
     except Exception as exc:
         logger.error(f"get_artifacts({workflow_id}) failed: {exc}", exc_info=True)
         raise ToolError(f"Failed to get artifacts: {exc}") from exc
+
 
 @with_tool_metrics
 @with_error_handling
@@ -7243,10 +7849,12 @@ async def get_artifact_by_id(
 
         # ───────── Post-transaction formatting ─────────
         _add_iso(art, "created_at")
-        art["success"] = True
-        art["processing_time"] = time.time() - start_time
         logger.info(f"Artifact {_fmt_id(artifact_id)} fetched.", emoji_key="page_facing_up")
-        return art
+        return {
+            "success": True,
+            "data": art,
+            "processing_time": time.time() - start_time,
+        }
 
 
 # --- 10.5 Goals ---
@@ -7307,9 +7915,11 @@ async def create_goal(
         _add_iso_local(goal_data, ("created_at", "updated_at", "completed_at"))
 
         return {
-            "goal": goal_data,
             "success": True,
-            "idempotency_hit": True,
+            "data": {
+                "goal": goal_data,
+                "idempotency_hit": True,
+            },
             "processing_time": time.perf_counter() - t0_perf,
         }
 
@@ -7360,7 +7970,7 @@ async def create_goal(
                     (workflow_id,),
                 )
                 sequence_number = int(seq_row[0] if seq_row and seq_row[0] is not None else 1)
-                
+
                 # Quick pre-check: is this sequence number already taken?
                 existing = await conn.execute_fetchone(
                     "SELECT 1 FROM goals WHERE workflow_id=? AND parent_goal_id IS NULL AND sequence_number=? LIMIT 1",
@@ -7368,11 +7978,13 @@ async def create_goal(
                 )
                 if not existing:
                     break  # sequence_number is available
-                    
+
                 # Backoff and retry (matches the pattern in get_next_sequence_number)
                 await asyncio.sleep(0.02 * (2**attempt) * (0.5 + random.random() / 2))
             else:
-                raise ToolError(f"Unable to allocate unique sequence_number for root goal in workflow {workflow_id} after 6 retries.")
+                raise ToolError(
+                    f"Unable to allocate unique sequence_number for root goal in workflow {workflow_id} after 6 retries."
+                )
 
         await conn.execute(
             """INSERT INTO goals (goal_id, workflow_id, parent_goal_id, title, description, status, priority, reasoning, acceptance_criteria, metadata, created_at, updated_at, sequence_number, completed_at, idempotency_key)
@@ -7432,9 +8044,11 @@ async def create_goal(
         time=duration,
     )
     return {
-        "goal": created_row,
         "success": True,
-        "idempotency_hit": False,
+        "data": {
+            "goal": created_row,
+            "idempotency_hit": False,
+        },
         "processing_time": duration,
     }
 
@@ -7546,10 +8160,12 @@ async def update_goal_status(
             raise ToolError("Internal error: Updated goal data not available after transaction.")
 
         return {
-            "updated_goal_details": upd,  # upd is now guaranteed to be a dict
-            "parent_goal_id": parent_goal_id,
-            "is_root_finished": is_root_finished,
             "success": True,
+            "data": {
+                "updated_goal_details": upd,  # upd is now guaranteed to be a dict
+                "parent_goal_id": parent_goal_id,
+                "is_root_finished": is_root_finished,
+            },
             "processing_time": dt,
         }
 
@@ -7584,7 +8200,7 @@ async def get_goal_details(
     t0 = time.time()
 
     db = DBConnection(db_path)
-    
+
     # Validate and resolve goal ID (supports both full UUIDs and 8-char truncated IDs)
     goal_id = await _validate_and_resolve_id(db, goal_id, "goals", "goal_id", "goal_id")
 
@@ -7624,7 +8240,13 @@ async def get_goal_details(
         elapsed = time.time() - t0
         logger.info(f"Goal '{_fmt_id(goal_id)}' loaded.", time=elapsed)
 
-        return {"goal": goal, "success": True, "processing_time": elapsed}
+        return {
+            "success": True,
+            "data": {
+                "goal": goal,
+            },
+            "processing_time": elapsed,
+        }
 
     except ToolInputError:
         raise
@@ -7639,18 +8261,18 @@ async def get_goal_details(
 async def get_goal_stack(
     workflow_id: str,
     *,
-    include_completed: bool = True,           # False → only active / in-progress
-    include_metadata: bool = False,           # serialise & return goal.metadata JSON
+    include_completed: bool = True,  # False → only active / in-progress
+    include_metadata: bool = False,  # serialise & return goal.metadata JSON
     db_path: str = agent_memory_config.db_path,
 ) -> Dict[str, Any]:
     """
     Return **all goals for *workflow_id*** in a *parent → children* nested tree.
 
-    • Rows are ordered by `sequence_number` inside each sibling list.  
-    • `acceptance_criteria` and `metadata` (optional) are JSON-deserialised.  
+    • Rows are ordered by `sequence_number` inside each sibling list.
+    • `acceptance_criteria` and `metadata` (optional) are JSON-deserialised.
     • When *include_completed* is *False* the filter excludes terminal states
       (completed / failed / abandoned) **recursively** – i.e. an inactive root
-      goal will omit its entire sub-tree.  
+      goal will omit its entire sub-tree.
     • Access is *read-only*; no WAL pressure.
 
     The payload always contains:
@@ -7660,7 +8282,7 @@ async def get_goal_stack(
         "workflow_id": "...",
         "goal_tree": [ { ...top-level goals… } ],
         "total_goals": <int>,
-        "success": true,
+
         "processing_time": <seconds.float>
     }
     ```
@@ -7706,9 +8328,7 @@ async def get_goal_stack(
         params: list[Any] = [workflow_id]
 
         if not include_completed:
-            where.append(
-                "status NOT IN (?, ?, ?)"
-            )
+            where.append("status NOT IN (?, ?, ?)")
             params += [
                 GoalStatus.COMPLETED.value,
                 GoalStatus.FAILED.value,
@@ -7728,9 +8348,7 @@ async def get_goal_stack(
         for r in rows:
             g = dict(r)
             # deserialise json cols
-            g["acceptance_criteria"] = await MemoryUtils.deserialize(
-                g.get("acceptance_criteria")
-            )
+            g["acceptance_criteria"] = await MemoryUtils.deserialize(g.get("acceptance_criteria"))
             if include_metadata:
                 g["metadata"] = await MemoryUtils.deserialize(g.get("metadata"))
             else:
@@ -7750,13 +8368,14 @@ async def get_goal_stack(
     )
 
     return {
-        "workflow_id": workflow_id,
-        "goal_tree": tree,
-        "total_goals": len(goals),
         "success": True,
+        "data": {
+            "workflow_id": workflow_id,
+            "goal_tree": tree,
+            "total_goals": len(goals),
+        },
         "processing_time": elapsed,
     }
-
 
 
 @with_tool_metrics
@@ -7811,14 +8430,16 @@ async def create_thought_chain(
                 initial_thought_id_existing = thought_row["thought_id"]
 
         return {
-            "thought_chain_id": existing_chain_id,
-            "workflow_id": wf_id,
-            "title": chain_data["title"],
-            "created_at_unix": chain_data["created_at"],
-            "created_at_iso": safe_format_timestamp(chain_data["created_at"]),
-            "initial_thought_id": initial_thought_id_existing,
-            "idempotency_hit": True,
             "success": True,
+            "data": {
+                "thought_chain_id": existing_chain_id,
+                "workflow_id": wf_id,
+                "title": chain_data["title"],
+                "created_at_unix": chain_data["created_at"],
+                "created_at_iso": safe_format_timestamp(chain_data["created_at"]),
+                "initial_thought_id": initial_thought_id_existing,
+                "idempotency_hit": True,
+            },
             "processing_time": time.perf_counter() - start_perf_t,
         }
 
@@ -7874,7 +8495,7 @@ async def create_thought_chain(
                 raise ToolError(th_res.get("error", "Failed to create initial thought"))
             initial_th_id_new = th_res["thought_id"]
 
-    result = {
+    result_data = {
         "thought_chain_id": chain_id_new,
         "workflow_id": workflow_id,
         "title": title,
@@ -7882,14 +8503,16 @@ async def create_thought_chain(
         "created_at_iso": safe_format_timestamp(now),
         "initial_thought_id": initial_th_id_new,
         "idempotency_hit": False,  # NEW
-        "success": True,
-        "processing_time": round(time.perf_counter() - start_perf_t, 4),
     }
     logger.info(
         f"New thought-chain {_fmt_id(chain_id_new)} for workflow {_fmt_id(workflow_id)}{' with seed ' + _fmt_id(initial_th_id_new) if initial_th_id_new else ''}.",
         emoji_key="thought_balloon",
     )
-    return result
+    return {
+        "success": True,
+        "data": result_data,
+        "processing_time": round(time.perf_counter() - start_perf_t, 4),
+    }
 
 
 @with_tool_metrics
@@ -7909,6 +8532,7 @@ async def get_thought_chain(
     if not thought_chain_id:
         raise ToolInputError("Thought chain ID required.", param_name="thought_chain_id")
 
+    t0 = time.perf_counter()
     db = DBConnection(db_path)
 
     def _add_iso(obj: Dict[str, Any], key: str) -> None:
@@ -7948,12 +8572,15 @@ async def get_thought_chain(
                         _add_iso(th, "created_at")
                         chain["thoughts"].append(th)
 
-            chain["success"] = True
             logger.info(
                 f"Retrieved thought chain {thought_chain_id} ({len(chain['thoughts'])} thoughts)",
                 emoji_key="left_speech_bubble",
             )
-            return chain
+            return {
+                "success": True,
+                "data": chain,
+                "processing_time": time.perf_counter() - t0,
+            }
 
     except ToolInputError:
         raise
@@ -7973,14 +8600,14 @@ async def _add_to_active_memories(
     """
     Add *memory_id* to the working-memory list for *context_id* while enforcing
     `agent_memory_config.max_working_memory_size` with proper race condition protection.
-    
+
     Uses atomic read-modify-write pattern with retry logic to prevent concurrent
     modification issues in working memory capacity management.
     """
     try:
         max_retries = 3
         backoff_base = 0.01
-        
+
         for attempt in range(max_retries):
             # ─────────────────────── atomic fetch with FOR UPDATE ───────────────────────
             state_row = await conn.execute_fetchone(
@@ -7992,7 +8619,9 @@ async def _add_to_active_memories(
                 return False
 
             workflow_id: str = state_row["workflow_id"]
-            current_ids: list[str] = await MemoryUtils.deserialize(state_row["working_memory"]) or []
+            current_ids: list[str] = (
+                await MemoryUtils.deserialize(state_row["working_memory"]) or []
+            )
 
             # ─────────────────────── quick-exit if already present ───────────────
             if memory_id in current_ids:
@@ -8006,9 +8635,7 @@ async def _add_to_active_memories(
                 )
                 is None
             ):
-                logger.warning(
-                    f"Memory {memory_id} missing; cannot add to context {context_id}."
-                )
+                logger.warning(f"Memory {memory_id} missing; cannot add to context {context_id}.")
                 return False
 
             # ─────────────────────── purge stale IDs (self-healing) ──────────────
@@ -8034,7 +8661,7 @@ async def _add_to_active_memories(
             # Create target list by appending new memory
             target_ids = current_ids + [memory_id]
             removed_id: str | None = None
-            
+
             # If we exceed capacity, remove least relevant memory
             if len(target_ids) > limit and len(target_ids) > 1:
                 # Ensure UDFs are registered before using compute_memory_relevance
@@ -8075,7 +8702,7 @@ async def _add_to_active_memories(
             # ─────────────────────── atomic update with optimistic concurrency ────────────
             serialized_target = await MemoryUtils.serialize(target_ids)
             now_unix = int(time.time())
-            
+
             # Use the original working_memory value as optimistic lock
             update_result = await conn.execute(
                 """
@@ -8083,12 +8710,16 @@ async def _add_to_active_memories(
                 SET working_memory = ?, last_active = ? 
                 WHERE state_id = ? AND working_memory = ?
                 """,
-                (serialized_target, now_unix, context_id, state_row["working_memory"])
+                (serialized_target, now_unix, context_id, state_row["working_memory"]),
             )
-            
+
             # Check if update succeeded (rowcount > 0 means we updated exactly one row)
-            rowcount = update_result.rowcount if hasattr(update_result, 'rowcount') else (await conn.execute("SELECT changes()")).fetchone()[0]
-            
+            rowcount = (
+                update_result.rowcount
+                if hasattr(update_result, "rowcount")
+                else (await conn.execute("SELECT changes()")).fetchone()[0]
+            )
+
             if rowcount > 0:
                 # Success! Log operations and return
                 if removed_id:
@@ -8119,11 +8750,11 @@ async def _add_to_active_memories(
                     f"{f', removed {_fmt_id(removed_id)}' if removed_id else ''}."
                 )
                 return True
-            
+
             else:
                 # Concurrent modification detected, retry
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(backoff_base * (2 ** attempt))
+                    await asyncio.sleep(backoff_base * (2**attempt))
                     logger.debug(
                         f"Working memory concurrent modification detected for {context_id}, "
                         f"retrying ({attempt + 1}/{max_retries})"
@@ -8135,7 +8766,7 @@ async def _add_to_active_memories(
                         f"after {max_retries} attempts due to concurrent modifications."
                     )
                     return False
-        
+
         return False
 
     except Exception as exc:
@@ -8144,7 +8775,7 @@ async def _add_to_active_memories(
             exc_info=True,
         )
         return False
-    
+
 
 # --- 12. Working Memory Management ---
 @with_tool_metrics
@@ -8174,7 +8805,6 @@ async def get_working_memory(
         "workflow_id": None,
         "focal_memory_id": None,
         "working_memories": [],
-        "success": True,
         "processing_time": 0.0,
     }
 
@@ -8192,9 +8822,7 @@ async def get_working_memory(
 
     # ───────── dynamic transaction mode ─────────
     txn_ctx = (
-        db.transaction(readonly=True)
-        if not update_access
-        else db.transaction(mode="IMMEDIATE")
+        db.transaction(readonly=True) if not update_access else db.transaction(mode="IMMEDIATE")
     )
 
     try:
@@ -8205,28 +8833,50 @@ async def get_working_memory(
                 (context_id,),
             )
             if state_row is None:
-                result["processing_time"] = time.time() - t0
+                processing_time = time.time() - t0
                 logger.warning(f"Context {context_id} not found; returning empty set.")
-                return result
+                return {
+                    "success": True,
+                    "data": result,
+                    "processing_time": processing_time,
+                }
 
             wf_id = state_row["workflow_id"]
             result["workflow_id"] = wf_id
             result["focal_memory_id"] = state_row["focal_memory_id"]
 
-            mem_ids: list[str] = await MemoryUtils.deserialize(
-                state_row["working_memory"]
-            ) or []
+            mem_ids: list[str] = await MemoryUtils.deserialize(state_row["working_memory"]) or []
 
             if not (mem_ids and wf_id):
-                result["processing_time"] = time.time() - t0
-                return result
+                processing_time = time.time() - t0
+                return {
+                    "success": True,
+                    "data": result,
+                    "processing_time": processing_time,
+                }
 
             # 2️⃣ fetch memory rows (chunk-safe) --------------------------------------
             cols = [
-                "memory_id", "workflow_id", "description", "memory_type", "memory_level",
-                "importance", "confidence", "created_at", "updated_at", "last_accessed",
-                "tags", "action_id", "thought_id", "artifact_id", "reasoning",
-                "source", "context", "access_count", "ttl", "embedding_id",
+                "memory_id",
+                "workflow_id",
+                "description",
+                "memory_type",
+                "memory_level",
+                "importance",
+                "confidence",
+                "created_at",
+                "updated_at",
+                "last_accessed",
+                "tags",
+                "action_id",
+                "thought_id",
+                "artifact_id",
+                "reasoning",
+                "source",
+                "context",
+                "access_count",
+                "ttl",
+                "embedding_id",
             ]
             if include_content:
                 cols.append("content")
@@ -8327,14 +8977,18 @@ async def get_working_memory(
 
             result["working_memories"] = ordered
 
-        result["processing_time"] = time.time() - t0
+        processing_time = time.time() - t0
         logger.info(
             f"Working memory for {context_id} returned "
             f"({len(result['working_memories'])} items, update_access={update_access}).",
             emoji_key="brain",
-            time=result["processing_time"],
+            time=processing_time,
         )
-        return result
+        return {
+            "success": True,
+            "data": result,
+            "processing_time": processing_time,
+        }
 
     except ToolInputError:
         raise
@@ -8413,9 +9067,7 @@ async def focus_memory(
 
                 # touch parent workflow timestamps
                 await conn.execute(
-                    "UPDATE workflows "
-                    "SET updated_at = ?, last_active = ? "
-                    "WHERE workflow_id = ?",
+                    "UPDATE workflows SET updated_at = ?, last_active = ? WHERE workflow_id = ?",
                     (now_unix, now_unix, mem_wf),
                 )
                 focus_changed = True
@@ -8441,12 +9093,14 @@ async def focus_memory(
             time=elapsed,
         )
         return {
-            "context_id": context_id,
-            "focused_memory_id": memory_id,
-            "workflow_id": mem_wf,
-            "focus_changed": focus_changed,
-            "added_to_working": added_to_wm,
             "success": True,
+            "data": {
+                "context_id": context_id,
+                "focused_memory_id": memory_id,
+                "workflow_id": mem_wf,
+                "focus_changed": focus_changed,
+                "added_to_working": added_to_wm,
+            },
             "processing_time": elapsed,
         }
 
@@ -8513,22 +9167,22 @@ async def optimize_working_memory(
                 "strategy": strategy,
                 "target_size": target_size,
                 "before_count": before_cnt,
-                "reason": "empty"
-                if before_cnt == 0
-                else "already_optimal_size",
+                "reason": "empty" if before_cnt == 0 else "already_optimal_size",
             },
         )
         return {
-            "context_id": context_id,
-            "workflow_id": workflow_id,
-            "strategy_used": strategy,
-            "target_size": target_size,
-            "before_count": before_cnt,
-            "after_count": before_cnt,
-            "removed_count": 0,
-            "retained_memories": wm_ids,
-            "removed_memories": [],
             "success": True,
+            "data": {
+                "context_id": context_id,
+                "workflow_id": workflow_id,
+                "strategy_used": strategy,
+                "target_size": target_size,
+                "before_count": before_cnt,
+                "after_count": before_cnt,
+                "removed_count": 0,
+                "retained_memories": wm_ids,
+                "removed_memories": [],
+            },
             "processing_time": time.time() - t0,
         }
 
@@ -8654,16 +9308,18 @@ async def optimize_working_memory(
 
     # ---- Phase 8: response ----
     return {
-        "context_id": context_id,
-        "workflow_id": workflow_id,
-        "strategy_used": strategy,
-        "target_size": target_size,
-        "before_count": before_cnt,
-        "after_count": len(final_retained),
-        "removed_count": len(removed_ids),
-        "retained_memories": final_retained,
-        "removed_memories": removed_ids,
         "success": True,
+        "data": {
+            "context_id": context_id,
+            "workflow_id": workflow_id,
+            "strategy_used": strategy,
+            "target_size": target_size,
+            "before_count": before_cnt,
+            "after_count": len(final_retained),
+            "removed_count": len(removed_ids),
+            "retained_memories": final_retained,
+            "removed_memories": removed_ids,
+        },
         "processing_time": time.time() - t0,
     }
 
@@ -8684,39 +9340,33 @@ async def _log_optimization_event(
     ---------
     • *payload* is forwarded **raw** to ``MemoryUtils._log_memory_operation``,
       which already takes care of serialisation; this removes the
-      double-encoding bug that produced escaped JSON strings in the log.  
+      double-encoding bug that produced escaped JSON strings in the log.
     • If *conn* is supplied (or *db* itself is an active ``aiosqlite.Connection``)
       the log entry is inserted through that handle so it is committed /
-      rolled-back together with the caller.  
-    • Otherwise we fall back to a short autocommit transaction exactly as before.  
+      rolled-back together with the caller.
+    • Otherwise we fall back to a short autocommit transaction exactly as before.
     • Any exception during logging is swallowed after emitting an error so that
       instrumentation can never break primary control-flow.
     """
-    if workflow_id is None:        # graceful no-op for orphaned optimisation attempts
+    if workflow_id is None:  # graceful no-op for orphaned optimisation attempts
         return
 
     try:
         # ─── path A: caller already holds an open transaction ───
         if conn is not None:
-            await MemoryUtils._log_memory_operation(
-                conn, workflow_id, op, None, None, payload
-            )
+            await MemoryUtils._log_memory_operation(conn, workflow_id, op, None, None, payload)
             return
 
         # ─── path B: *db* is itself a live aiosqlite connection ───
         if isinstance(db, aiosqlite.Connection):
-            await MemoryUtils._log_memory_operation(
-                db, workflow_id, op, None, None, payload
-            )
+            await MemoryUtils._log_memory_operation(db, workflow_id, op, None, None, payload)
             return
 
         # ─── path C: independent, short autocommit transaction ───
         async with db.transaction() as tx_conn:
-            await MemoryUtils._log_memory_operation(
-                tx_conn, workflow_id, op, None, None, payload
-            )
+            await MemoryUtils._log_memory_operation(tx_conn, workflow_id, op, None, None, payload)
 
-    except Exception as exc:       # never let logging break the caller
+    except Exception as exc:  # never let logging break the caller
         logger.error(
             f"Unable to log WM optimisation event '{op}' for workflow {workflow_id}: {exc}",
             exc_info=True,
@@ -8733,7 +9383,7 @@ async def save_cognitive_state(
     *,
     focus_area_ids: list[str] | None = None,
     context_action_ids: list[str] | None = None,
-    current_goal_thought_ids: list[str] | None = None,
+    current_goals: list[str] | None = None,
     db_path: str = agent_memory_config.db_path,
 ) -> dict[str, Any]:
     """
@@ -8744,14 +9394,14 @@ async def save_cognitive_state(
     if not workflow_id:
         raise ToolInputError("Workflow ID required.", param_name="workflow_id")
 
-    state_id   = MemoryUtils.generate_id()
-    now_unix   = int(time.time())
-    t0         = time.time()
+    state_id = MemoryUtils.generate_id()
+    now_unix = int(time.time())
+    t0 = time.time()
 
-    focus_area_ids        = list(focus_area_ids or [])
-    working_memory_ids    = list(working_memory_ids or [])
-    context_action_ids    = list(context_action_ids or [])
-    current_goal_thought_ids = list(current_goal_thought_ids or [])
+    focus_area_ids = list(focus_area_ids or [])
+    working_memory_ids = list(working_memory_ids or [])
+    context_action_ids = list(context_action_ids or [])
+    current_goals = list(current_goals or [])
 
     # ------------------------------------------------------------------ helpers
     def _first_nonblank(seq: list[str]) -> str | None:
@@ -8770,9 +9420,9 @@ async def save_cognitive_state(
             )
 
         # ───── 2. gather ALL referenced IDs for FK checking ─────
-        memory_ids_to_check: set[str]  = {*(working_memory_ids or []), *(focus_area_ids or [])}
-        action_ids_to_check: set[str]  = set(context_action_ids)
-        thought_ids_to_check: set[str] = set(current_goal_thought_ids)
+        memory_ids_to_check: set[str] = {*(working_memory_ids or []), *(focus_area_ids or [])}
+        action_ids_to_check: set[str] = set(context_action_ids)
+        goal_ids_to_check: set[str] = set(current_goals)
 
         # ---- validate memories ----
         if memory_ids_to_check:
@@ -8804,31 +9454,30 @@ async def save_cognitive_state(
                     f"Action IDs not found / wrong workflow: {example}", "context_action_ids"
                 )
 
-        # ---- validate thoughts ----
-        if thought_ids_to_check:
-            ph = ",".join("?" * len(thought_ids_to_check))
+        # ---- validate goals ----
+        if goal_ids_to_check:
+            ph = ",".join("?" * len(goal_ids_to_check))
             rows = await conn.execute_fetchall(
                 f"""
-                SELECT t.thought_id
-                FROM thoughts t
-                JOIN thought_chains c ON c.thought_chain_id = t.thought_chain_id
-                WHERE t.thought_id IN ({ph}) AND c.workflow_id = ?
+                SELECT goal_id
+                FROM goals
+                WHERE goal_id IN ({ph}) AND workflow_id = ?
                 """,
-                (*thought_ids_to_check, workflow_id),
+                (*goal_ids_to_check, workflow_id),
             )
-            found = {r["thought_id"] for r in rows}
-            missing = thought_ids_to_check - found
+            found = {r["goal_id"] for r in rows}
+            missing = goal_ids_to_check - found
             if missing:
-                example = ", ".join(_fmt_id(th) for th in list(missing)[:5])
+                example = ", ".join(_fmt_id(goal) for goal in list(missing)[:5])
                 raise ToolInputError(
-                    f"Thought IDs not found / wrong workflow: {example}", "current_goal_thought_ids"
+                    f"Goal IDs not found / wrong workflow: {example}", "current_goals"
                 )
 
         # ───── 3. SERIALISE PAYLOAD *after* validation ─────
         wm_json = await MemoryUtils.serialize(working_memory_ids)
         fa_json = await MemoryUtils.serialize(focus_area_ids)
         ca_json = await MemoryUtils.serialize(context_action_ids)
-        cg_json = await MemoryUtils.serialize(current_goal_thought_ids)
+        cg_json = await MemoryUtils.serialize(current_goals)
 
         # ───── 4. focal-memory pick (robust + invariant: **must be in WM set**) ─────
         #
@@ -8846,7 +9495,7 @@ async def save_cognitive_state(
         if cand and cand in working_memory_ids:
             focal_memory_id_selected = cand
         elif working_memory_ids:
-            focal_memory_id_selected = working_memory_ids[0]          # already non-blank by FK check
+            focal_memory_id_selected = working_memory_ids[0]  # already non-blank by FK check
         # else - remains None
 
         # ───── 5. atomically insert new state and mark as latest ─────
@@ -8899,7 +9548,7 @@ async def save_cognitive_state(
                 "working_memory_count": len(working_memory_ids),
                 "focus_areas_count": len(focus_area_ids),
                 "context_actions_count": len(context_action_ids),
-                "current_goals_count": len(current_goal_thought_ids),
+                "current_goals_count": len(current_goals),
                 "focal_memory_id_used": _fmt_id(focal_memory_id_selected)
                 if focal_memory_id_selected
                 else None,
@@ -8914,13 +9563,16 @@ async def save_cognitive_state(
         time=elapsed,
     )
     return {
-        "state_id": state_id,
-        "workflow_id": workflow_id,
-        "title": title,
-        "created_at": to_iso_z(now_unix),
-        "processing_time": elapsed,
         "success": True,
+        "data": {
+            "state_id": state_id,
+            "workflow_id": workflow_id,
+            "title": title,
+            "created_at": to_iso_z(now_unix),
+        },
+        "processing_time": elapsed,
     }
+
 
 # --- 13. Cognitive State Persistence ---
 @with_tool_metrics
@@ -8928,7 +9580,7 @@ async def save_cognitive_state(
 async def load_cognitive_state(
     workflow_id: str,
     *,
-    state_id: str | None = None,      # None → latest
+    state_id: str | None = None,  # None → latest
     db_path: str = agent_memory_config.db_path,
 ) -> Dict[str, Any]:
     """
@@ -8953,7 +9605,6 @@ async def load_cognitive_state(
             "created_at_unix": None,
             "created_at_iso": None,
             "focal_memory_id": None,
-            "success": True,
             "message": msg,
             "processing_time": time.time() - t_start,
         }
@@ -9030,7 +9681,6 @@ async def load_cognitive_state(
         "created_at_unix": created_ts,
         "created_at_iso": safe_format_timestamp(created_ts) if created_ts else None,
         "focal_memory_id": state.get("focal_memory_id"),
-        "success": True,
         "processing_time": time.time() - t_start,
     }
 
@@ -9041,7 +9691,11 @@ async def load_cognitive_state(
         emoji_key="inbox_tray",
         time=result["processing_time"],
     )
-    return result
+    return {
+        "success": True,
+        "data": result,
+        "processing_time": result.pop("processing_time"),
+    }
 
 
 # --- 14. Comprehensive Context Retrieval ---
@@ -9184,14 +9838,17 @@ async def get_workflow_context(
         ctx["important_memories"] = [{"error": str(exc)}]
 
     # ─────────────────────────── finalise ───────────────────────────────
-    ctx["success"] = True
-    ctx["processing_time"] = time.time() - t0
+    processing_time = time.time() - t0
     logger.info(
         f"Context summary for {_fmt_id(workflow_id)} ready",
         emoji_key="clipboard",
-        time=ctx["processing_time"],
+        time=processing_time,
     )
-    return ctx
+    return {
+        "success": True,
+        "data": ctx,
+        "processing_time": processing_time,
+    }
 
 
 # --- Helper: Scoring for Focus ---
@@ -9243,169 +9900,6 @@ def _calculate_focus_score_internal_ums(
     return max(score, 0.0)
 
 
-# --- Tool: Auto Update Focus --- 
-@with_tool_metrics
-@with_error_handling
-async def auto_update_focus(
-    context_id: str,
-    *,
-    recent_actions_count: int = 3,
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Strict version: Enforces that a valid cognitive_state row exists for *context_id*.
-    Fails with a clear error if not, rather than auto-creating a row.
-    """
-    # ───────────── validation ─────────────
-    if not context_id:
-        raise ToolInputError("Context ID required.", param_name="context_id")
-    if recent_actions_count < 0:
-        raise ToolInputError("recent_actions_count must be ≥ 0.", param_name="recent_actions_count")
-
-    t0 = time.time()
-    db = DBConnection(db_path)
-
-    # local helper ------------------------------------------------------------
-    def _chunk(seq: Sequence[str], size: int = 900) -> Iterable[Sequence[str]]:
-        """Yield slices of *seq* with length ≤ *size* (SQLite param hard-limit is 999)."""
-        for i in range(0, len(seq), size):
-            yield seq[i : i + size]
-
-    async with db.transaction(readonly=True) as conn:
-        # ───────── load cognitive-state row ─────────
-        state_row = await conn.execute_fetchone(
-            "SELECT workflow_id, focal_memory_id, working_memory "
-            "FROM cognitive_states WHERE state_id = ?",
-            (context_id,),
-        )
-        if state_row is None:
-            logger.error(
-                f"INVARIANT VIOLATION: Context {context_id} missing from cognitive_states!"
-            )
-            raise ToolError(
-                f"Context '{context_id}' not found in cognitive_states. "
-                "This indicates a serious bug in agent/UMS integration."
-            )
-
-        workflow_id: str = state_row["workflow_id"]
-        prev_focal_id: str | None = state_row["focal_memory_id"]
-        working_ids: list[str] = await MemoryUtils.deserialize(state_row["working_memory"]) or []
-
-        if not working_ids:
-            return {
-                "context_id": context_id,
-                "workflow_id": workflow_id,
-                "previous_focal_memory_id": prev_focal_id,
-                "new_focal_memory_id": None,
-                "focus_changed": False,
-                "reason": "Working memory empty.",
-                "success": True,
-                "processing_time": time.time() - t0,
-            }
-
-        # ───────── fetch working-memory rows (chunked) ─────────
-        mem_rows: list[aiosqlite.Row] = []
-        for slice_ids in _chunk(working_ids):
-            ph = ",".join("?" * len(slice_ids))
-            mem_rows += await conn.execute_fetchall(
-                f"""
-                SELECT memory_id, action_id, memory_type, memory_level,
-                       importance, confidence, created_at,
-                       last_accessed, access_count
-                FROM   memories
-                WHERE  memory_id IN ({ph}) AND workflow_id = ?
-                """,
-                (*slice_ids, workflow_id),
-            )
-
-        # ───────── recent actions (unchanged) ─────────
-        recent_action_ids: list[str] = []
-        if recent_actions_count:
-            rows = await conn.execute_fetchall(
-                """
-                SELECT action_id
-                FROM   actions
-                WHERE  workflow_id = ?
-                ORDER  BY sequence_number DESC
-                LIMIT  ?
-                """,
-                (workflow_id, recent_actions_count),
-            )
-            recent_action_ids = [r["action_id"] for r in rows]
-
-        # ───────── scoring & best-candidate pick ─────────
-        now_unix = int(time.time())
-        best_id: str | None = None
-        best_score = -1.0
-        for mem in mem_rows:
-            score = _calculate_focus_score_internal_ums(mem, recent_action_ids, now_unix)
-
-            # safe-logging guard ------------------------------------------------
-            try:
-                mem_dbg_id = _fmt_id(mem["memory_id"]) if mem.get("memory_id") else "<NULL>"
-            except Exception:
-                mem_dbg_id = "<INVALID_ID>"
-
-            logger.debug(
-                f"Focus-score {mem_dbg_id} → {score:.2f} (ctx {context_id})"
-            )
-
-            if score > best_score:
-                best_score = score
-                best_id = mem["memory_id"]
-
-    # ───────── write-back if focus changed ─────────
-    focus_changed = False
-    reason: str
-    async with db.transaction(mode="IMMEDIATE") as conn:
-        now_unix = int(time.time())
-
-        if best_id and best_id != prev_focal_id:
-            await conn.execute(
-                """
-                UPDATE cognitive_states
-                SET    focal_memory_id = ?, last_active = ?
-                WHERE  state_id = ?
-                """,
-                (best_id, now_unix, context_id),
-            )
-            focus_changed = True
-            reason = f"Shifted focus to {_fmt_id(best_id)} – highest score {best_score:.2f}."
-
-            await MemoryUtils._log_memory_operation(
-                conn,
-                workflow_id,
-                "auto_focus_shift",
-                best_id,
-                None,
-                {
-                    "context_id": context_id,
-                    "previous_focus": prev_focal_id,
-                    "score": best_score,
-                },
-            )
-        else:
-            reason = (
-                "No suitable candidate."
-                if best_id is None
-                else f"Focus remains on {_fmt_id(prev_focal_id)} (score {best_score:.2f})."
-            )
-            await conn.execute(
-                "UPDATE cognitive_states SET last_active = ? WHERE state_id = ?",
-                (now_unix, context_id),
-            )
-
-    return {
-        "context_id": context_id,
-        "workflow_id": workflow_id,
-        "previous_focal_memory_id": prev_focal_id,
-        "new_focal_memory_id": best_id,
-        "focus_changed": focus_changed,
-        "reason": reason,
-        "success": True,
-        "processing_time": time.time() - t0,
-    }
-
 # --- Tool: Promote Memory Level ---
 @with_tool_metrics
 @with_error_handling
@@ -9436,8 +9930,8 @@ async def promote_memory_level(
                 param_name="target_level",
             ) from exc
 
-    db     = DBConnection(db_path)
-    t0     = time.time()
+    db = DBConnection(db_path)
+    t0 = time.time()
 
     # ─────── 1. fetch current memory row ───────
     async with db.transaction(readonly=True) as conn:
@@ -9455,58 +9949,55 @@ async def promote_memory_level(
 
     current_level = MemoryLevel(row["memory_level"])
     # ---- FIX #18: tolerate NULL legacy values ---------------------------------
-    raw_type_val  = (row["memory_type"] or MemoryType.FACT.value).lower()
+    raw_type_val = (row["memory_type"] or MemoryType.FACT.value).lower()
     try:
         mem_type = MemoryType(raw_type_val)
-    except ValueError:                       # in case of unexpected old enum strings
+    except ValueError:  # in case of unexpected old enum strings
         mem_type = MemoryType.FACT
     # --------------------------------------------------------------------------
-    access_count  = row["access_count"]  or 0
-    confidence    = row["confidence"]    or 0.0
-    workflow_id   = row["workflow_id"]
+    access_count = row["access_count"] or 0
+    confidence = row["confidence"] or 0.0
+    workflow_id = row["workflow_id"]
 
     # ─────── 2. derive automatic target (if any) ───────
     # ---- FIX #19 --------------------------------------------------------------
     if current_level == MemoryLevel.EPISODIC:
         auto_next: MemoryLevel | None = MemoryLevel.SEMANTIC
-    elif (
-        current_level == MemoryLevel.SEMANTIC
-        and mem_type in {MemoryType.PROCEDURE, MemoryType.SKILL}
-    ):
+    elif current_level == MemoryLevel.SEMANTIC and mem_type in {
+        MemoryType.PROCEDURE,
+        MemoryType.SKILL,
+    }:
         auto_next = MemoryLevel.PROCEDURAL
     else:
         auto_next = None
     # --------------------------------------------------------------------------
     candidate: MemoryLevel | None = explicit_target or auto_next
 
-    promoted        = False
-    new_level       = current_level
+    promoted = False
+    new_level = current_level
     explanatory_msg = "Criteria not met or level already maximal."
 
     # ─────── 3. evaluate promotion eligibility ───────
     # Define proper level hierarchy for ordinal comparison
     level_hierarchy = {
         MemoryLevel.WORKING: 0,
-        MemoryLevel.EPISODIC: 1, 
+        MemoryLevel.EPISODIC: 1,
         MemoryLevel.SEMANTIC: 2,
-        MemoryLevel.PROCEDURAL: 3
+        MemoryLevel.PROCEDURAL: 3,
     }
-    
+
     if candidate and level_hierarchy[candidate] > level_hierarchy[current_level]:
         if candidate == MemoryLevel.SEMANTIC:
-            ok = (
-                access_count >= min_access_count_episodic
-                and confidence   >= min_confidence_episodic
-            )
+            ok = access_count >= min_access_count_episodic and confidence >= min_confidence_episodic
             explanatory_msg = (
                 f"access_count {access_count}/{min_access_count_episodic}, "
                 f"confidence {confidence:.2f}/{min_confidence_episodic}"
             )
         elif candidate == MemoryLevel.PROCEDURAL:
             ok = (
-                mem_type       in {MemoryType.PROCEDURE, MemoryType.SKILL}
+                mem_type in {MemoryType.PROCEDURE, MemoryType.SKILL}
                 and access_count >= min_access_count_semantic
-                and confidence   >= min_confidence_semantic
+                and confidence >= min_confidence_semantic
             )
             explanatory_msg = (
                 f"type {mem_type.value}, "
@@ -9517,7 +10008,7 @@ async def promote_memory_level(
             ok = False
 
         if ok:
-            promoted  = True
+            promoted = True
             new_level = candidate
             explanatory_msg = f"Promoted: {explanatory_msg}"
         else:
@@ -9555,12 +10046,14 @@ async def promote_memory_level(
 
     # ─────── 5. response ───────
     return {
-        "memory_id": memory_id,
-        "promoted": promoted,
-        "previous_level": current_level.value,
-        "new_level": new_level.value if promoted else None,
-        "reason": explanatory_msg,
         "success": True,
+        "data": {
+            "memory_id": memory_id,
+            "promoted": promoted,
+            "previous_level": current_level.value,
+            "new_level": new_level.value if promoted else None,
+            "reason": explanatory_msg,
+        },
         "processing_time": time.time() - t0,
     }
 
@@ -9635,7 +10128,7 @@ async def update_memory(
     _add("confidence", confidence)
     _add("description", description)
     _add("reasoning", reasoning)
-    if final_tags_json is not None:              # ← always update when param given
+    if final_tags_json is not None:  # ← always update when param given
         _add("tags", final_tags_json)
     _add("ttl", ttl)
     if memory_level_value is not None:
@@ -9682,9 +10175,7 @@ async def update_memory(
         if regenerate_embedding:
             eff_desc = description if "description" in touched else db_desc
             eff_content = content if "content" in touched else db_content
-            text_for_embed = (
-                f"{eff_desc}: {eff_content}" if eff_desc else eff_content
-            ) or ""
+            text_for_embed = (f"{eff_desc}: {eff_content}" if eff_desc else eff_content) or ""
 
             if not text_for_embed.strip():
                 raise ToolError(
@@ -9692,9 +10183,7 @@ async def update_memory(
                 )
 
             try:
-                new_embedding_id = await _store_embedding(
-                    conn, memory_id, text_for_embed
-                )
+                new_embedding_id = await _store_embedding(conn, memory_id, text_for_embed)
                 if new_embedding_id:
                     embedding_regenerated = True
                     if "updated_at" not in touched:  # ensure updated_at bump at least once
@@ -9736,13 +10225,15 @@ async def update_memory(
     )
 
     return {
-        "memory_id": memory_id,
-        "updated_fields": touched,
-        "embedding_regenerated": embedding_regenerated,
-        "new_embedding_id": new_embedding_id,
-        "updated_at": to_iso_z(now_ts),
-        "processing_time": proc_time,
         "success": True,
+        "data": {
+            "memory_id": memory_id,
+            "updated_fields": touched,
+            "embedding_regenerated": embedding_regenerated,
+            "new_embedding_id": new_embedding_id,
+            "updated_at": to_iso_z(now_ts),
+        },
+        "processing_time": proc_time,
     }
 
 
@@ -9754,8 +10245,8 @@ async def update_memory(
 async def get_linked_memories(
     memory_id: str,
     *,
-    direction: str = "both",            # "outgoing" | "incoming" | "both"
-    link_type: str | None = None,       # optional filter (case-insensitive)
+    direction: str = "both",  # "outgoing" | "incoming" | "both"
+    link_type: str | None = None,  # optional filter (case-insensitive)
     limit: int = 10,
     include_memory_details: bool = True,
     db_path: str = agent_memory_config.db_path,
@@ -9768,7 +10259,7 @@ async def get_linked_memories(
                 "outgoing": [...],   # always present
                 "incoming": [...],   # always present
             },
-            "success": True,
+
             "processing_time": …
         }
 
@@ -9801,8 +10292,7 @@ async def get_linked_memories(
     t0 = time.time()
     payload: Dict[str, Any] = {
         "memory_id": memory_id,
-        "links": {"outgoing": [], "incoming": []},   # ← guaranteed keys
-        "success": True,
+        "links": {"outgoing": [], "incoming": []},  # ← guaranteed keys
         "processing_time": 0.0,
     }
 
@@ -9812,7 +10302,7 @@ async def get_linked_memories(
                 obj[f"{k}_iso"] = safe_format_timestamp(ts)
 
     db = DBConnection(db_path)
-    async with db.transaction() as conn:            # single R/W txn (updates access stats)
+    async with db.transaction() as conn:  # single R/W txn (updates access stats)
         # ─── confirm source memory exists & capture workflow_id ───
         src_row = await conn.execute_fetchone(
             "SELECT workflow_id FROM memories WHERE memory_id = ?", (memory_id,)
@@ -9845,16 +10335,14 @@ async def get_linked_memories(
         type_filter_sql = " AND ml.link_type = ?" if link_type else ""
 
         # Common SELECT columns
-        base_cols = (
-            "ml.link_id, ml.link_type, ml.strength, ml.description AS link_description, ml.created_at"
-        )
+        base_cols = "ml.link_id, ml.link_type, ml.strength, ml.description AS link_description, ml.created_at"
 
         # ─── OUTGOING ───
         if direction in {"outgoing", "both"}:
             out_params: list[Any] = [memory_id]
             if link_type:
                 out_params.append(link_type.lower())
-            out_params.append(limit)                                  # ← limit LAST
+            out_params.append(limit)  # ← limit LAST
             out_rows = await conn.execute_fetchall(
                 f"""
                 SELECT {base_cols},
@@ -9881,7 +10369,7 @@ async def get_linked_memories(
             in_params: list[Any] = [memory_id]
             if link_type:
                 in_params.append(link_type.lower())
-            in_params.append(limit)                                   # ← limit LAST
+            in_params.append(limit)  # ← limit LAST
             in_rows = await conn.execute_fetchall(
                 f"""
                 SELECT {base_cols},
@@ -9919,134 +10407,17 @@ async def get_linked_memories(
             },
         )
 
-    payload["processing_time"] = time.time() - t0
+    processing_time = time.time() - t0
     logger.info(
         f"get_linked_memories({_fmt_id(memory_id)}) dir={direction} type={link_type or 'any'} → {len(payload['links']['outgoing'])} out / {len(payload['links']['incoming'])} in",
         emoji_key="link",
-        time=payload["processing_time"],
+        time=processing_time,
     )
-    return payload
-
-
-
-@with_tool_metrics
-@with_error_handling
-async def get_recent_memories_with_links(
-    workflow_id: str,
-    *,
-    limit: int = 10,
-    memory_level_filter: Optional[str] = None,
-    links_per_memory_limit: int = 3,
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Retrieve recent memories for a workflow along with their outgoing links.
-    
-    Args:
-        workflow_id: The workflow to get memories for
-        limit: Maximum number of recent memories to fetch (default: 10)
-        memory_level_filter: Optional filter by memory level (e.g., "working", "episodic")
-        links_per_memory_limit: Maximum outgoing links to fetch per memory (default: 3)
-        db_path: Database path
-        
-    Returns:
-        Dict containing recent memories with their outgoing links
-    """
-    ts_start = time.perf_counter()
-    
-    # Validate workflow_id format
-    workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
-    
-    # Validate limit
-    if limit <= 0:
-        raise ToolInputError("limit must be positive")
-    if limit > 100:  # reasonable upper bound
-        raise ToolInputError("limit cannot exceed 100")
-        
-    # Validate links_per_memory_limit
-    if links_per_memory_limit < 0:
-        raise ToolInputError("links_per_memory_limit cannot be negative")
-    if links_per_memory_limit > 50:  # reasonable upper bound
-        raise ToolInputError("links_per_memory_limit cannot exceed 50")
-    
-    # Validate memory_level_filter if provided
-    if memory_level_filter is not None:
-        valid_levels = [level.value for level in MemoryLevel]
-        if memory_level_filter not in valid_levels:
-            raise ToolInputError(f"memory_level_filter must be one of: {valid_levels}")
-    
-    logger.info(f"Fetching recent memories with links for workflow {_fmt_id(workflow_id)}")
-    
-    try:
-        # Step 1: Get recent memories using existing query_memories function
-        query_result = await query_memories(
-            workflow_id=workflow_id,
-            memory_level=memory_level_filter,
-            sort_by="created_at",
-            sort_order="DESC",
-            limit=limit,
-            include_content=True,
-            include_links=False,
-            db_path=db_path
-        )
-        
-        if not query_result.get("success", False):
-            return {
-                "success": False,
-                "error": "Failed to query recent memories",
-                "details": query_result.get("error", "Unknown error"),
-                "processing_time": time.perf_counter() - ts_start
-            }
-        
-        recent_memories = query_result.get("data", {}).get("memories", [])
-        
-        # Step 2: For each memory, fetch its outgoing links
-        augmented_memories = []
-        for memory_dict in recent_memories:
-            memory_id = memory_dict.get("memory_id")
-            if not memory_id:
-                continue
-                
-            # Get outgoing links for this memory
-            if links_per_memory_limit > 0:
-                links_result = await get_linked_memories(
-                    memory_id=memory_id,
-                    direction="outgoing",
-                    limit=links_per_memory_limit,
-                    include_memory_details=False,
-                    db_path=db_path
-                )
-                
-                if links_result.get("success", False):
-                    outgoing_links = links_result.get("data", {}).get("links", [])
-                else:
-                    outgoing_links = []
-            else:
-                outgoing_links = []
-            
-            # Add the outgoing links summary to the memory dict
-            memory_with_links = memory_dict.copy()
-            memory_with_links["outgoing_links_summary"] = outgoing_links
-            augmented_memories.append(memory_with_links)
-        
-        return {
-            "success": True,
-            "data": {
-                "memories": augmented_memories,
-                "total_count": len(augmented_memories),
-                "query_params": {
-                    "workflow_id": workflow_id,
-                    "limit": limit,
-                    "memory_level_filter": memory_level_filter,
-                    "links_per_memory_limit": links_per_memory_limit
-                }
-            },
-            "processing_time": time.perf_counter() - ts_start
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in get_recent_memories_with_links: {e}")
-        raise
+    return {
+        "success": True,
+        "data": payload,
+        "processing_time": processing_time,
+    }
 
 
 @with_tool_metrics
@@ -10060,45 +10431,44 @@ async def get_subgraph(
     max_hops: int = 1,
     max_nodes: int = 50,
     link_type_filter: Optional[List[str]] = None,
-    
     # NetworkX Analysis (optional)
     compute_centrality: bool = False,
-    centrality_algorithms: Optional[List[str]] = None,  # ["pagerank", "betweenness", "closeness", "degree"]
+    centrality_algorithms: Optional[
+        List[str]
+    ] = None,  # ["pagerank", "betweenness", "closeness", "degree"]
     detect_communities: bool = False,
     community_algorithm: str = "louvain",
     compute_graph_metrics: bool = False,
     include_shortest_paths: bool = False,
     shortest_path_targets: Optional[List[str]] = None,
-    
     # Output Control
     include_node_content: bool = False,
     centrality_top_k: int = 10,
     min_community_size: int = 3,
-    
     db_path: str = agent_memory_config.db_path,
 ) -> Dict[str, Any]:
     """
     Extract and analyze subgraphs using NetworkX algorithms.
-    
+
     This tool builds a NetworkX graph from the memory database and uses sophisticated
     graph algorithms for both traversal and analysis. All operations are NetworkX-based
     for consistency and advanced capabilities.
-    
+
     Args:
         workflow_id: The workflow scope for the subgraph
         start_node_id: Memory ID to start traversal from (None for full graph analysis)
-        
+
         # Traversal Control
         algorithm: NetworkX algorithm to use:
-            - "ego_graph": Get neighborhood around start_node_id 
+            - "ego_graph": Get neighborhood around start_node_id
             - "bfs_tree": Breadth-first tree from start_node_id
-            - "dfs_tree": Depth-first tree from start_node_id  
+            - "dfs_tree": Depth-first tree from start_node_id
             - "component": Connected component containing start_node_id
             - "full_graph": Return entire workflow graph (ignores start_node_id)
         max_hops: Maximum traversal depth (for ego_graph, bfs_tree, dfs_tree)
         max_nodes: Maximum nodes to return
         link_type_filter: Only traverse these link types
-        
+
         # Analysis Options
         compute_centrality: Calculate node importance scores
         centrality_algorithms: Which centrality measures to compute
@@ -10107,64 +10477,77 @@ async def get_subgraph(
         compute_graph_metrics: Calculate global graph statistics
         include_shortest_paths: Analyze paths between nodes
         shortest_path_targets: Specific nodes for path analysis
-        
+
         # Output Options
         include_node_content: Include full memory content vs preview
         centrality_top_k: Return only top K central nodes
         min_community_size: Minimum size for detected communities
-        
+
     Returns:
         Dict with subgraph nodes, edges, and optional analysis results
     """
     ts_start = time.perf_counter()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
     if start_node_id:
         start_node_id = _validate_uuid_format(start_node_id, "start_node_id")
-    
+
     valid_algorithms = {"ego_graph", "bfs_tree", "dfs_tree", "component", "full_graph"}
     if algorithm not in valid_algorithms:
-        raise ToolInputError(f"algorithm must be one of: {valid_algorithms}", param_name="algorithm")
-    
+        raise ToolInputError(
+            f"algorithm must be one of: {valid_algorithms}", param_name="algorithm"
+        )
+
     if algorithm != "full_graph" and not start_node_id:
-        raise ToolInputError(f"start_node_id required for algorithm '{algorithm}'", param_name="start_node_id")
-    
+        raise ToolInputError(
+            f"start_node_id required for algorithm '{algorithm}'", param_name="start_node_id"
+        )
+
     if max_hops < 1 or max_hops > 10:
         raise ToolInputError("max_hops must be between 1 and 10", param_name="max_hops")
-        
+
     if max_nodes <= 0 or max_nodes > 2000:
         raise ToolInputError("max_nodes must be between 1 and 2000", param_name="max_nodes")
-    
+
     # Validate analysis parameters
     if centrality_algorithms is None:
         centrality_algorithms = ["pagerank"] if compute_centrality else []
-    
+
     valid_centrality = {"pagerank", "betweenness", "closeness", "degree", "eigenvector", "katz"}
     invalid_centrality = set(centrality_algorithms) - valid_centrality
     if invalid_centrality:
-        raise ToolInputError(f"Invalid centrality algorithms: {invalid_centrality}", param_name="centrality_algorithms")
-    
+        raise ToolInputError(
+            f"Invalid centrality algorithms: {invalid_centrality}",
+            param_name="centrality_algorithms",
+        )
+
     valid_community = {"louvain", "leiden", "greedy_modularity", "label_propagation"}
     if community_algorithm not in valid_community:
-        raise ToolInputError(f"community_algorithm must be one of: {valid_community}", param_name="community_algorithm")
-    
+        raise ToolInputError(
+            f"community_algorithm must be one of: {valid_community}",
+            param_name="community_algorithm",
+        )
+
     # Normalize link types
     normalized_link_types = None
     if link_type_filter:
         normalized_link_types = [lt.upper() for lt in link_type_filter if lt]
-    
+
     logger.info(f"Building NetworkX subgraph for workflow {_fmt_id(workflow_id)} using {algorithm}")
-    
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction(readonly=True) as conn:
             # Step 1: Build full NetworkX graph from database
             full_graph = await _build_networkx_graph_from_db(
-                conn, workflow_id, normalized_link_types, max_nodes * 2  # Load more for better traversal
+                conn,
+                workflow_id,
+                normalized_link_types,
+                max_nodes * 2,  # Load more for better traversal
             )
-            
+
             if not full_graph.nodes():
                 return {
                     "success": True,
@@ -10176,24 +10559,31 @@ async def get_subgraph(
                         "edges": [],
                         "node_count": 0,
                         "edge_count": 0,
-                        "message": "No memories found in workflow"
+                        "message": "No memories found in workflow",
                     },
-                    "processing_time": time.perf_counter() - ts_start
+                    "processing_time": time.perf_counter() - ts_start,
                 }
-            
-            # Step 2: Apply NetworkX traversal algorithm  
+
+            # Step 2: Apply NetworkX traversal algorithm
             subgraph = await _apply_networkx_algorithm(
                 full_graph, algorithm, start_node_id, max_hops, max_nodes
             )
-            
+
             # Step 3: Convert subgraph to output format
             nodes_data, edges_data = await _extract_subgraph_data(
                 conn, subgraph, include_node_content
             )
-            
+
             # Step 4: Run optional NetworkX analysis
             analysis_results = {}
-            if any([compute_centrality, detect_communities, compute_graph_metrics, include_shortest_paths]):
+            if any(
+                [
+                    compute_centrality,
+                    detect_communities,
+                    compute_graph_metrics,
+                    include_shortest_paths,
+                ]
+            ):
                 analysis_results = await _perform_networkx_analysis(
                     subgraph,
                     centrality_algorithms=centrality_algorithms,
@@ -10203,11 +10593,11 @@ async def get_subgraph(
                     include_shortest_paths=include_shortest_paths,
                     shortest_path_targets=shortest_path_targets,
                     centrality_top_k=centrality_top_k,
-                    min_community_size=min_community_size
+                    min_community_size=min_community_size,
                 )
-        
+
         processing_time = time.perf_counter() - ts_start
-        
+
         result = {
             "success": True,
             "data": {
@@ -10217,24 +10607,24 @@ async def get_subgraph(
                 "traversal_params": {
                     "max_hops": max_hops,
                     "max_nodes": max_nodes,
-                    "link_type_filter": link_type_filter
+                    "link_type_filter": link_type_filter,
                 },
                 "nodes": nodes_data,
                 "edges": edges_data,
                 "node_count": len(nodes_data),
                 "edge_count": len(edges_data),
-                **analysis_results  # Include all analysis results
+                **analysis_results,  # Include all analysis results
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
-        
+
         logger.info(
             f"NetworkX subgraph complete: {len(nodes_data)} nodes, {len(edges_data)} edges, "
             f"algorithm: {algorithm}, analysis: {bool(analysis_results)}, time: {processing_time:.3f}s",
             emoji_key="graph",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return result
 
     except ToolInputError:
@@ -10245,15 +10635,15 @@ async def get_subgraph(
 
 
 async def _build_networkx_graph_from_db(
-    conn, 
-    workflow_id: str, 
+    conn,
+    workflow_id: str,
     link_type_filter: Optional[List[str]] = None,
-    node_limit: Optional[int] = None
+    node_limit: Optional[int] = None,
 ) -> nx.DiGraph:
     """Build NetworkX directed graph directly from database."""
-    
+
     G = nx.DiGraph()
-    
+
     # Get nodes (memories)
     node_sql = """
         SELECT memory_id, description, memory_type, memory_level,
@@ -10267,13 +10657,13 @@ async def _build_networkx_graph_from_db(
         ORDER BY importance DESC, created_at DESC
     """
     node_params = [workflow_id]
-    
+
     if node_limit:
         node_sql += " LIMIT ?"
         node_params.append(node_limit)
-    
+
     node_rows = await conn.execute_fetchall(node_sql, node_params)
-    
+
     # Add nodes to graph
     for row in node_rows:
         G.add_node(
@@ -10285,9 +10675,9 @@ async def _build_networkx_graph_from_db(
             importance=row["importance"],
             confidence=row["confidence"],
             created_at_iso=to_iso_z(row["created_at"]) if row["created_at"] else None,
-            last_accessed_iso=to_iso_z(row["last_accessed"]) if row["last_accessed"] else None
+            last_accessed_iso=to_iso_z(row["last_accessed"]) if row["last_accessed"] else None,
         )
-    
+
     # Get edges (memory links)
     edge_sql = """
         SELECT ml.source_memory_id, ml.target_memory_id, ml.link_type, 
@@ -10298,28 +10688,28 @@ async def _build_networkx_graph_from_db(
         WHERE m1.workflow_id = ? AND m2.workflow_id = ?
     """
     edge_params = [workflow_id, workflow_id]
-    
+
     if link_type_filter:
         placeholders = ",".join("?" * len(link_type_filter))
         edge_sql += f" AND UPPER(ml.link_type) IN ({placeholders})"
         edge_params.extend(link_type_filter)
-    
+
     edge_rows = await conn.execute_fetchall(edge_sql, edge_params)
-    
+
     # Add edges to graph (only if both nodes exist)
     for row in edge_rows:
         source = row["source_memory_id"]
         target = row["target_memory_id"]
-        
+
         if G.has_node(source) and G.has_node(target):
             G.add_edge(
                 source,
                 target,
                 link_type=row["link_type"],
                 strength=row["strength"],
-                link_description=row["link_description"] or ""
+                link_description=row["link_description"] or "",
             )
-    
+
     return G
 
 
@@ -10328,10 +10718,10 @@ async def _apply_networkx_algorithm(
     algorithm: str,
     start_node_id: Optional[str],
     max_hops: int,
-    max_nodes: int
+    max_nodes: int,
 ) -> nx.DiGraph:
     """Apply the specified NetworkX algorithm to get subgraph."""
-    
+
     if algorithm == "full_graph":
         # Return the full graph (possibly limited by size)
         if len(full_graph) <= max_nodes:
@@ -10339,49 +10729,49 @@ async def _apply_networkx_algorithm(
         else:
             # Return highest importance nodes
             nodes_by_importance = sorted(
-                full_graph.nodes(data=True),
-                key=lambda x: x[1].get("importance", 0),
-                reverse=True
+                full_graph.nodes(data=True), key=lambda x: x[1].get("importance", 0), reverse=True
             )
             top_nodes = [node_id for node_id, _ in nodes_by_importance[:max_nodes]]
             return full_graph.subgraph(top_nodes).copy()
-    
+
     # Validate start node exists
     if start_node_id not in full_graph:
-        raise ToolInputError(f"Start node {start_node_id} not found in graph", param_name="start_node_id")
-    
+        raise ToolInputError(
+            f"Start node {start_node_id} not found in graph", param_name="start_node_id"
+        )
+
     if algorithm == "ego_graph":
         subgraph = nx.ego_graph(full_graph, start_node_id, radius=max_hops)
-        
+
     elif algorithm == "bfs_tree":
         subgraph = nx.bfs_tree(full_graph, start_node_id, depth_limit=max_hops)
-        
+
     elif algorithm == "dfs_tree":
         subgraph = nx.dfs_tree(full_graph, start_node_id, depth_limit=max_hops)
-        
+
     elif algorithm == "component":
         # Get weakly connected component containing start_node
         if full_graph.is_directed():
             components = nx.weakly_connected_components(full_graph)
         else:
             components = nx.connected_components(full_graph)
-        
+
         # Find component containing start_node
         component_nodes = None
         for component in components:
             if start_node_id in component:
                 component_nodes = component
                 break
-        
+
         if component_nodes:
             subgraph = full_graph.subgraph(component_nodes).copy()
         else:
             # Fallback to single node
             subgraph = full_graph.subgraph([start_node_id]).copy()
-    
+
     else:
         raise ToolInputError(f"Unknown algorithm: {algorithm}", param_name="algorithm")
-    
+
     # Limit size if needed
     if len(subgraph) > max_nodes:
         # Keep nodes closest to start_node by shortest path
@@ -10392,33 +10782,29 @@ async def _apply_networkx_algorithm(
             # Sort by distance, then by importance
             nodes_by_priority = sorted(
                 distances.keys(),
-                key=lambda n: (distances[n], -subgraph.nodes[n].get("importance", 0))
+                key=lambda n: (distances[n], -subgraph.nodes[n].get("importance", 0)),
             )
             selected_nodes = nodes_by_priority[:max_nodes]
             subgraph = subgraph.subgraph(selected_nodes).copy()
         except Exception:
             # Fallback: take highest importance nodes
             nodes_by_importance = sorted(
-                subgraph.nodes(data=True),
-                key=lambda x: x[1].get("importance", 0),
-                reverse=True
+                subgraph.nodes(data=True), key=lambda x: x[1].get("importance", 0), reverse=True
             )
             top_nodes = [node_id for node_id, _ in nodes_by_importance[:max_nodes]]
             subgraph = subgraph.subgraph(top_nodes).copy()
-    
+
     return subgraph
 
 
 async def _extract_subgraph_data(
-    conn, 
-    subgraph: nx.DiGraph, 
-    include_full_content: bool
+    conn, subgraph: nx.DiGraph, include_full_content: bool
 ) -> Tuple[List[Dict], List[Dict]]:
     """Extract nodes and edges data from NetworkX subgraph."""
-    
+
     nodes_data = []
     edges_data = []
-    
+
     # Extract nodes
     for node_id in subgraph.nodes():
         node_attrs = subgraph.nodes[node_id]
@@ -10430,9 +10816,9 @@ async def _extract_subgraph_data(
             "importance": node_attrs.get("importance", 5.0),
             "confidence": node_attrs.get("confidence", 1.0),
             "created_at_iso": node_attrs.get("created_at_iso"),
-            "last_accessed_iso": node_attrs.get("last_accessed_iso")
+            "last_accessed_iso": node_attrs.get("last_accessed_iso"),
         }
-        
+
         if include_full_content:
             # Get full content from database
             content_res = await conn.execute_fetchone(
@@ -10442,20 +10828,22 @@ async def _extract_subgraph_data(
                 node_dict["content"] = content_res["content"]
         else:
             node_dict["content_preview"] = node_attrs.get("content_preview", "")
-        
+
         nodes_data.append(node_dict)
-    
+
     # Extract edges
     for source, target in subgraph.edges():
         edge_attrs = subgraph.edges[source, target]
-        edges_data.append({
-            "source": source,
-            "target": target,
-            "link_type": edge_attrs.get("link_type", "RELATED"),
-            "strength": edge_attrs.get("strength", 1.0),
-            "link_description": edge_attrs.get("link_description", "")
-        })
-    
+        edges_data.append(
+            {
+                "source": source,
+                "target": target,
+                "link_type": edge_attrs.get("link_type", "RELATED"),
+                "strength": edge_attrs.get("strength", 1.0),
+                "link_description": edge_attrs.get("link_description", ""),
+            }
+        )
+
     return nodes_data, edges_data
 
 
@@ -10468,16 +10856,16 @@ async def _perform_networkx_analysis(
     include_shortest_paths: bool,
     shortest_path_targets: Optional[List[str]],
     centrality_top_k: int,
-    min_community_size: int
+    min_community_size: int,
 ) -> Dict[str, Any]:
     """Perform comprehensive NetworkX analysis."""
-    
+
     analysis = {}
-    
+
     # Centrality Analysis
     if centrality_algorithms:
         centrality_scores = {}
-        
+
         for algorithm in centrality_algorithms:
             try:
                 if algorithm == "pagerank":
@@ -10489,7 +10877,7 @@ async def _perform_networkx_analysis(
                 elif algorithm == "degree":
                     scores = dict(G.degree())
                     max_degree = max(scores.values()) if scores else 1
-                    scores = {k: v/max_degree for k, v in scores.items()}
+                    scores = {k: v / max_degree for k, v in scores.items()}
                 elif algorithm == "eigenvector":
                     try:
                         scores = nx.eigenvector_centrality(G, max_iter=100)
@@ -10500,33 +10888,36 @@ async def _perform_networkx_analysis(
                         scores = nx.katz_centrality(G, alpha=0.1, max_iter=100)
                     except (nx.PowerIterationFailedConvergence, nx.NetworkXError):
                         scores = nx.katz_centrality_numpy(G, alpha=0.1)
-                
+
                 # Get top K nodes
-                top_nodes = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:centrality_top_k]
+                top_nodes = sorted(scores.items(), key=lambda x: x[1], reverse=True)[
+                    :centrality_top_k
+                ]
                 centrality_scores[algorithm] = {
                     "top_nodes": dict(top_nodes),
                     "stats": {
                         "total_nodes": len(scores),
                         "max_score": max(scores.values()) if scores else 0,
                         "min_score": min(scores.values()) if scores else 0,
-                        "mean_score": sum(scores.values()) / len(scores) if scores else 0
-                    }
+                        "mean_score": sum(scores.values()) / len(scores) if scores else 0,
+                    },
                 }
-                
+
             except Exception as e:
                 logger.warning(f"Centrality calculation failed for {algorithm}: {e}")
                 centrality_scores[algorithm] = {"error": str(e)}
-        
+
         analysis["centrality"] = centrality_scores
-    
+
     # Community Detection
     if detect_communities and len(G) > 2:
         try:
             G_undirected = G.to_undirected()
-            
+
             if community_algorithm == "louvain":
                 try:
                     import community as community_louvain
+
                     partition = community_louvain.best_partition(G_undirected)
                 except ImportError:
                     communities_gen = nx.community.greedy_modularity_communities(G_undirected)
@@ -10534,63 +10925,64 @@ async def _perform_networkx_analysis(
                     for i, community in enumerate(communities_gen):
                         for node in community:
                             partition[node] = i
-                            
+
             elif community_algorithm == "greedy_modularity":
                 communities_gen = nx.community.greedy_modularity_communities(G_undirected)
                 partition = {}
                 for i, community in enumerate(communities_gen):
                     for node in community:
                         partition[node] = i
-                        
+
             elif community_algorithm == "label_propagation":
                 communities_gen = nx.community.label_propagation_communities(G_undirected)
                 partition = {}
                 for i, community in enumerate(communities_gen):
                     for node in community:
                         partition[node] = i
-            
+
             else:  # leiden - fallback to greedy modularity
                 communities_gen = nx.community.greedy_modularity_communities(G_undirected)
                 partition = {}
                 for i, community in enumerate(communities_gen):
                     for node in community:
                         partition[node] = i
-            
+
             # Process communities
             communities_by_id = defaultdict(list)
             for node, comm_id in partition.items():
                 communities_by_id[comm_id].append(node)
-            
+
             # Filter by size and format
             communities = [
                 {
                     "community_id": comm_id,
                     "members": members,
                     "size": len(members),
-                    "avg_importance": sum(G.nodes[node].get("importance", 5.0) for node in members) / len(members)
+                    "avg_importance": sum(G.nodes[node].get("importance", 5.0) for node in members)
+                    / len(members),
                 }
                 for comm_id, members in communities_by_id.items()
                 if len(members) >= min_community_size
             ]
-            
+
             # Calculate modularity
             try:
                 modularity = nx.community.modularity(G_undirected, communities_by_id.values())
             except Exception:
                 modularity = None
-            
+
             analysis["communities"] = {
                 "algorithm": community_algorithm,
                 "communities": communities,
                 "total_communities": len(communities),
                 "modularity": modularity,
-                "largest_community_size": max((c["size"] for c in communities), default=0)
+                "largest_community_size": max((c["size"] for c in communities), default=0),
             }
-            
+
         except Exception as e:
             logger.warning(f"Community detection failed: {e}")
             analysis["communities"] = {"error": str(e)}
-    
+
     # Graph Metrics
     if compute_graph_metrics:
         try:
@@ -10601,16 +10993,18 @@ async def _perform_networkx_analysis(
                 "is_weakly_connected": nx.is_weakly_connected(G),
                 "number_weakly_connected_components": nx.number_weakly_connected_components(G),
             }
-            
+
             # Additional metrics for reasonable-sized graphs
             if 0 < len(G) <= 500:
                 try:
                     G_undirected = G.to_undirected()
                     if nx.is_connected(G_undirected):
-                        metrics["average_shortest_path_length"] = nx.average_shortest_path_length(G_undirected)
-                    
+                        metrics["average_shortest_path_length"] = nx.average_shortest_path_length(
+                            G_undirected
+                        )
+
                     metrics["average_clustering"] = nx.average_clustering(G_undirected)
-                    
+
                     # Degree statistics
                     degrees = dict(G.degree())
                     if degrees:
@@ -10618,50 +11012,55 @@ async def _perform_networkx_analysis(
                         metrics["degree_stats"] = {
                             "mean": sum(degree_values) / len(degree_values),
                             "max": max(degree_values),
-                            "min": min(degree_values)
+                            "min": min(degree_values),
                         }
-                    
+
                 except Exception as e:
                     logger.debug(f"Advanced graph metrics failed: {e}")
-            
+
             analysis["graph_metrics"] = metrics
-            
+
         except Exception as e:
             logger.warning(f"Graph metrics calculation failed: {e}")
             analysis["graph_metrics"] = {"error": str(e)}
-    
+
     # Shortest Paths Analysis
     if include_shortest_paths and shortest_path_targets:
         try:
             paths_analysis = {}
-            
+
             for target in shortest_path_targets:
                 if target in G:
                     try:
                         # Paths TO this target
                         paths_to = nx.single_target_shortest_path_length(G, target, cutoff=5)
-                        
-                        # Paths FROM this target  
+
+                        # Paths FROM this target
                         paths_from = nx.single_source_shortest_path_length(G, target, cutoff=5)
-                        
+
                         paths_analysis[target] = {
                             "reachable_from": len(paths_to),
                             "can_reach": len(paths_from),
-                            "avg_distance_to": sum(paths_to.values()) / len(paths_to) if paths_to else 0,
-                            "avg_distance_from": sum(paths_from.values()) / len(paths_from) if paths_from else 0,
+                            "avg_distance_to": sum(paths_to.values()) / len(paths_to)
+                            if paths_to
+                            else 0,
+                            "avg_distance_from": sum(paths_from.values()) / len(paths_from)
+                            if paths_from
+                            else 0,
                             "max_distance_to": max(paths_to.values()) if paths_to else 0,
-                            "max_distance_from": max(paths_from.values()) if paths_from else 0
+                            "max_distance_from": max(paths_from.values()) if paths_from else 0,
                         }
                     except Exception as e:
                         paths_analysis[target] = {"error": str(e)}
-            
+
             analysis["shortest_paths"] = paths_analysis
-            
+
         except Exception as e:
             logger.warning(f"Shortest paths analysis failed: {e}")
             analysis["shortest_paths"] = {"error": str(e)}
-    
+
     return analysis
+
 
 @with_tool_metrics
 @with_error_handling
@@ -10675,34 +11074,36 @@ async def get_memory_link_metadata(
 ) -> Dict[str, Any]:
     """
     Retrieve metadata stored in the description field of a specific memory link.
-    
+
     Args:
         workflow_id: Workflow scope for validation (consistent API)
         source_memory_id: The source memory ID of the link
-        target_memory_id: The target memory ID of the link  
+        target_memory_id: The target memory ID of the link
         link_type: The type of link (case-insensitive)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and the link's metadata
     """
     ts_start = time.perf_counter()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
     source_memory_id = _validate_uuid_format(source_memory_id, "source_memory_id")
     target_memory_id = _validate_uuid_format(target_memory_id, "target_memory_id")
-    
+
     if not link_type or not isinstance(link_type, str):
         raise ToolInputError("link_type is required and must be a string.", param_name="link_type")
-    
+
     # Normalize link_type to uppercase for consistency
     normalized_link_type = link_type.upper()
-    
-    logger.info(f"Retrieving metadata for link {_fmt_id(source_memory_id)} -> {_fmt_id(target_memory_id)} ({normalized_link_type})")
-    
+
+    logger.info(
+        f"Retrieving metadata for link {_fmt_id(source_memory_id)} -> {_fmt_id(target_memory_id)} ({normalized_link_type})"
+    )
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction(readonly=True) as conn:
             # Validate workflow exists
@@ -10710,21 +11111,19 @@ async def get_memory_link_metadata(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Validate that source memory belongs to the specified workflow for scoping
             source_memory_row = await conn.execute_fetchone(
                 "SELECT 1 FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (source_memory_id, workflow_id)
+                (source_memory_id, workflow_id),
             )
             if not source_memory_row:
                 raise ToolInputError(
                     f"Source memory {source_memory_id} not found in workflow {workflow_id}.",
-                    param_name="source_memory_id"
+                    param_name="source_memory_id",
                 )
-            
+
             # Fetch the memory link
             link_row = await conn.execute_fetchone(
                 """
@@ -10732,23 +11131,23 @@ async def get_memory_link_metadata(
                 FROM memory_links 
                 WHERE source_memory_id = ? AND target_memory_id = ? AND UPPER(link_type) = ?
                 """,
-                (source_memory_id, target_memory_id, normalized_link_type)
+                (source_memory_id, target_memory_id, normalized_link_type),
             )
-            
+
             if not link_row:
                 raise ToolInputError(
                     f"Memory link not found: {source_memory_id} -> {target_memory_id} ({normalized_link_type})",
-                    param_name="link_type"
+                    param_name="link_type",
                 )
-            
+
             # Deserialize the description field (which may contain JSON metadata)
             description_json = link_row["description"]
             metadata = await MemoryUtils.deserialize(description_json)
-            
+
             # If deserialization fails or returns None, use empty dict
             if metadata is None:
                 metadata = {}
-            
+
             # If the description was plain text (not JSON), store it as a text field in metadata
             if isinstance(metadata, str):
                 metadata = {"description_text": metadata}
@@ -10757,24 +11156,25 @@ async def get_memory_link_metadata(
                 metadata = {"raw_description": str(metadata)}
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Retrieved metadata for link {_fmt_id(source_memory_id)} -> {_fmt_id(target_memory_id)} ({normalized_link_type})",
             emoji_key="link",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
-            "success": True,
             "data": {
                 "source_memory_id": source_memory_id,
                 "target_memory_id": target_memory_id,
                 "link_type": normalized_link_type,
                 "metadata": metadata,
                 "strength": link_row["strength"],
-                "created_at_iso": to_iso_z(link_row["created_at"]) if link_row["created_at"] else None
+                "created_at_iso": to_iso_z(link_row["created_at"])
+                if link_row["created_at"]
+                else None,
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -10782,7 +11182,6 @@ async def get_memory_link_metadata(
     except Exception as e:
         logger.error(f"Error retrieving memory link metadata: {e}", exc_info=True)
         raise ToolError(f"Failed to retrieve memory link metadata: {e}") from e
-
 
 
 @with_tool_metrics
@@ -10796,74 +11195,74 @@ async def add_tag_to_memory(
 ) -> Dict[str, Any]:
     """
     Add a new tag to a memory's existing list of tags, ensuring uniqueness and case-insensitivity.
-    
+
     Args:
         workflow_id: Required workflow scope
         memory_id: Required memory ID
         tag: The tag to add (will be normalized to lowercase and stripped)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and updated tags list
     """
     ts_start = time.perf_counter()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
     memory_id = _validate_uuid_format(memory_id, "memory_id")
-    
+
     if not tag or not isinstance(tag, str):
         raise ToolInputError("tag is required and must be a non-empty string.", param_name="tag")
-    
+
     # Normalize tag: lowercase and strip whitespace
     normalized_tag = tag.strip().lower()
     if not normalized_tag:
         raise ToolInputError("tag cannot be empty after normalization.", param_name="tag")
-    
+
     # Basic validation for tag content (no special characters that could break serialization)
-    if any(char in normalized_tag for char in ['"', "'", '\n', '\r', '\t']):
+    if any(char in normalized_tag for char in ['"', "'", "\n", "\r", "\t"]):
         raise ToolInputError("tag cannot contain quotes, newlines, or tabs.", param_name="tag")
-    
-    logger.info(f"Adding tag '{normalized_tag}' to memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)}")
-    
+
+    logger.info(
+        f"Adding tag '{normalized_tag}' to memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)}"
+    )
+
     db = DBConnection(db_path)
-    
+
     try:
         now = int(time.time())
-        
+
         async with db.transaction() as conn:
             # Validate workflow exists
             workflow_row = await conn.execute_fetchone(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Fetch current tags for the memory (with FOR UPDATE for safe concurrent access)
             memory_row = await conn.execute_fetchone(
                 "SELECT tags FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (memory_id, workflow_id)
+                (memory_id, workflow_id),
             )
-            
+
             if not memory_row:
                 raise ToolInputError(
                     f"Memory {memory_id} not found in workflow {workflow_id}.",
-                    param_name="memory_id"
+                    param_name="memory_id",
                 )
-            
+
             # Deserialize existing tags
             existing_tags_json = memory_row["tags"]
             current_tags = await MemoryUtils.deserialize(existing_tags_json)
-            
+
             # If deserialization fails or returns None, start with empty list
             if not isinstance(current_tags, list):
                 current_tags = []
-            
+
             # Normalize existing tags for comparison (but preserve original case in storage)
             normalized_existing = [t.lower() for t in current_tags if isinstance(t, str)]
-            
+
             # Check if the normalized tag already exists
             if normalized_tag in normalized_existing:
                 # Tag already exists, no update needed
@@ -10872,12 +11271,14 @@ async def add_tag_to_memory(
             else:
                 # Add the new tag (preserve original case from input after normalization)
                 updated_tags = current_tags + [normalized_tag]
-                
+
                 # Serialize updated tags back to JSON
                 serialized_tags = await MemoryUtils.serialize(updated_tags)
                 if serialized_tags is None:
-                    raise ToolInputError("Failed to serialize updated tags to JSON.", param_name="tag")
-                
+                    raise ToolInputError(
+                        "Failed to serialize updated tags to JSON.", param_name="tag"
+                    )
+
                 # Update the memory with new tags and timestamp
                 result = await conn.execute(
                     """
@@ -10885,17 +11286,19 @@ async def add_tag_to_memory(
                     SET tags = ?, updated_at = ? 
                     WHERE memory_id = ? AND workflow_id = ?
                     """,
-                    (serialized_tags, now, memory_id, workflow_id)
+                    (serialized_tags, now, memory_id, workflow_id),
                 )
-                
+
                 if result.rowcount == 0:
                     raise ToolInputError(
                         f"Failed to update memory {memory_id} - memory may have been deleted.",
-                        param_name="memory_id"
+                        param_name="memory_id",
                     )
-                
-                logger.info(f"Successfully added tag '{normalized_tag}' to memory {_fmt_id(memory_id)}")
-            
+
+                logger.info(
+                    f"Successfully added tag '{normalized_tag}' to memory {_fmt_id(memory_id)}"
+                )
+
             # Log the tag addition operation
             await MemoryUtils._log_memory_operation(
                 conn,
@@ -10906,18 +11309,18 @@ async def add_tag_to_memory(
                 {
                     "added_tag": normalized_tag,
                     "total_tags_count": len(updated_tags),
-                    "was_duplicate": normalized_tag in normalized_existing
-                }
+                    "was_duplicate": normalized_tag in normalized_existing,
+                },
             )
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Tag operation completed for memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)}",
             emoji_key="tag",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
@@ -10925,9 +11328,9 @@ async def add_tag_to_memory(
                 "updated_tags": updated_tags,
                 "added_tag": normalized_tag,
                 "was_duplicate": normalized_tag in normalized_existing,
-                "total_tags_count": len(updated_tags)
+                "total_tags_count": len(updated_tags),
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -10948,26 +11351,28 @@ async def create_embedding(
 ) -> Dict[str, Any]:
     """
     Explicitly trigger the creation (or re-creation) and storage of an embedding for a memory.
-    
+
     Args:
         workflow_id: Required workflow scope
         memory_id: Required memory ID
         force_recreation: If True, create even if one exists (default: False)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and embedding details
     """
     ts_start = time.perf_counter()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
     memory_id = _validate_uuid_format(memory_id, "memory_id")
-    
-    logger.info(f"Creating embedding for memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)} (force={force_recreation})")
-    
+
+    logger.info(
+        f"Creating embedding for memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)} (force={force_recreation})"
+    )
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction() as conn:
             # Validate workflow exists
@@ -10975,10 +11380,8 @@ async def create_embedding(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Check if embedding already exists (unless force_recreation is True)
             if not force_recreation:
                 existing_embedding_row = await conn.execute_fetchone(
@@ -10989,30 +11392,31 @@ async def create_embedding(
                     JOIN memories m ON m.embedding_id = e.id
                     WHERE m.memory_id = ? AND m.workflow_id = ?
                     """,
-                    (memory_id, workflow_id)
+                    (memory_id, workflow_id),
                 )
-                
+
                 if existing_embedding_row:
                     # Fetch the actual vector data
                     vector_row = await conn.execute_fetchone(
                         "SELECT embedding FROM embeddings WHERE id = ?",
-                        (existing_embedding_row["embedding_id"],)
+                        (existing_embedding_row["embedding_id"],),
                     )
-                    
+
                     if vector_row:
                         # Deserialize the vector from binary format
                         import numpy as np
+
                         vector = np.frombuffer(vector_row["embedding"], dtype=np.float32).tolist()
-                        
+
                         processing_time = time.perf_counter() - ts_start
-                        
+
                         logger.info(
                             f"Retrieved existing embedding for memory {_fmt_id(memory_id)} "
                             f"(model: {existing_embedding_row['model']}, dim: {existing_embedding_row['dimension']})",
                             emoji_key="recycle",
-                            time=processing_time
+                            time=processing_time,
                         )
-                        
+
                         return {
                             "success": True,
                             "data": {
@@ -11022,27 +11426,29 @@ async def create_embedding(
                                 "model_used": existing_embedding_row["model"],
                                 "dimension": existing_embedding_row["dimension"],
                                 "status": "retrieved_existing",
-                                "created_at_iso": to_iso_z(existing_embedding_row["created_at"]) if existing_embedding_row["created_at"] else None
+                                "created_at_iso": to_iso_z(existing_embedding_row["created_at"])
+                                if existing_embedding_row["created_at"]
+                                else None,
                             },
-                            "processing_time": processing_time
+                            "processing_time": processing_time,
                         }
-            
+
             # Fetch memory content and description
             memory_row = await conn.execute_fetchone(
                 "SELECT content, description FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                (memory_id, workflow_id)
+                (memory_id, workflow_id),
             )
-            
+
             if not memory_row:
                 raise ToolInputError(
                     f"Memory {memory_id} not found in workflow {workflow_id}.",
-                    param_name="memory_id"
+                    param_name="memory_id",
                 )
-            
+
             # Construct text to embed
             content = memory_row["content"] if memory_row["content"] else ""
             description = memory_row["description"] if memory_row["description"] else ""
-            
+
             if description and content:
                 text_to_embed = f"{description}: {content}"
             elif description:
@@ -11052,15 +11458,15 @@ async def create_embedding(
             else:
                 raise ToolInputError(
                     f"Memory {memory_id} has no content or description to embed.",
-                    param_name="memory_id"
+                    param_name="memory_id",
                 )
-            
+
             # Create the embedding using existing internal function
             embedding_db_id = await _store_embedding(conn, memory_id, text_to_embed)
-            
+
             if not embedding_db_id:
                 raise ToolError("Failed to create embedding - embedding service may be unavailable")
-            
+
             # Fetch the newly created embedding details
             new_embedding_row = await conn.execute_fetchone(
                 """
@@ -11068,25 +11474,26 @@ async def create_embedding(
                 FROM embeddings 
                 WHERE id = ?
                 """,
-                (embedding_db_id,)
+                (embedding_db_id,),
             )
-            
+
             if not new_embedding_row:
                 raise ToolError("Failed to retrieve newly created embedding")
-            
+
             # Deserialize the vector from binary format
             import numpy as np
+
             vector = np.frombuffer(new_embedding_row["embedding"], dtype=np.float32).tolist()
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Created new embedding for memory {_fmt_id(memory_id)} "
             f"(model: {new_embedding_row['model']}, dim: {new_embedding_row['dimension']})",
             emoji_key="sparkles",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
@@ -11096,9 +11503,11 @@ async def create_embedding(
                 "model_used": new_embedding_row["model"],
                 "dimension": new_embedding_row["dimension"],
                 "status": "created",
-                "created_at_iso": to_iso_z(new_embedding_row["created_at"]) if new_embedding_row["created_at"] else None
+                "created_at_iso": to_iso_z(new_embedding_row["created_at"])
+                if new_embedding_row["created_at"]
+                else None,
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -11118,25 +11527,27 @@ async def get_embedding(
 ) -> Dict[str, Any]:
     """
     Retrieve the stored embedding vector for a memory.
-    
+
     Args:
         workflow_id: Required workflow scope for auth/scoping
         memory_id: Required memory ID
         db_path: Database path
-        
+
     Returns:
         Dict containing success status and the memory's embedding vector
     """
     ts_start = time.perf_counter()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
     memory_id = _validate_uuid_format(memory_id, "memory_id")
-    
-    logger.info(f"Retrieving embedding for memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)}")
-    
+
+    logger.info(
+        f"Retrieving embedding for memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)}"
+    )
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction(readonly=True) as conn:
             # Validate workflow exists
@@ -11144,10 +11555,8 @@ async def get_embedding(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Fetch embedding data with memory validation
             embedding_row = await conn.execute_fetchone(
                 """
@@ -11156,78 +11565,82 @@ async def get_embedding(
                 JOIN memories m ON e.memory_id = m.memory_id
                 WHERE m.memory_id = ? AND m.workflow_id = ?
                 """,
-                (memory_id, workflow_id)
+                (memory_id, workflow_id),
             )
-            
+
             if not embedding_row:
                 # Check if memory exists but has no embedding
                 memory_exists = await conn.execute_fetchone(
                     "SELECT 1 FROM memories WHERE memory_id = ? AND workflow_id = ?",
-                    (memory_id, workflow_id)
+                    (memory_id, workflow_id),
                 )
-                
+
                 if not memory_exists:
                     raise ToolInputError(
                         f"Memory {memory_id} not found in workflow {workflow_id}.",
-                        param_name="memory_id"
+                        param_name="memory_id",
                     )
-                
+
                 # Memory exists but no embedding
                 processing_time = time.perf_counter() - ts_start
                 logger.info(f"No embedding found for memory {_fmt_id(memory_id)}")
-                
+
                 return {
                     "success": True,
                     "data": {
                         "memory_id": memory_id,
                         "vector": None,
                         "model": None,
-                        "dimension": None
+                        "dimension": None,
                     },
-                    "processing_time": processing_time
+                    "processing_time": processing_time,
                 }
-            
+
             # Deserialize the embedding vector
             embedding_blob = embedding_row.get("embedding")
             model = embedding_row.get("model")
             dimension = embedding_row.get("dimension")
-            
+
             vector = None
             if embedding_blob:
                 try:
                     # Deserialize the embedding BLOB into a list of floats
                     vector = await MemoryUtils.deserialize(embedding_blob)
-                    
+
                     # Ensure it's a list of numbers
                     if not isinstance(vector, list):
                         logger.warning(f"Embedding for memory {_fmt_id(memory_id)} is not a list")
                         vector = None
                     elif vector and not all(isinstance(x, (int, float)) for x in vector):
-                        logger.warning(f"Embedding for memory {_fmt_id(memory_id)} contains non-numeric values")
+                        logger.warning(
+                            f"Embedding for memory {_fmt_id(memory_id)} contains non-numeric values"
+                        )
                         vector = None
-                        
+
                 except Exception as e:
-                    logger.warning(f"Failed to deserialize embedding for memory {_fmt_id(memory_id)}: {e}")
+                    logger.warning(
+                        f"Failed to deserialize embedding for memory {_fmt_id(memory_id)}: {e}"
+                    )
                     vector = None
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Retrieved embedding for memory {_fmt_id(memory_id)} in workflow {_fmt_id(workflow_id)} "
             f"(dimension: {dimension}, model: {model})",
             emoji_key="brain",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
             "success": True,
             "data": {
                 "memory_id": memory_id,
                 "vector": vector,
                 "model": model,
-                "dimension": dimension
+                "dimension": dimension,
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -11235,185 +11648,6 @@ async def get_embedding(
     except Exception as e:
         logger.error(f"Error retrieving embedding: {e}", exc_info=True)
         raise ToolError(f"Failed to retrieve embedding: {e}") from e
-
-
-
-@with_tool_metrics
-@with_error_handling
-async def get_goals(
-    workflow_id: str,
-    *,
-    parent_goal_id: Optional[str] = None,
-    status: Optional[str] = None,
-    limit: int = 50,
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Get a list of goals for a workflow with basic filtering.
-    
-    Args:
-        workflow_id: Required workflow scope
-        parent_goal_id: If provided, returns direct children of this goal. 
-                       If None, returns root goals (where parent_goal_id IS NULL).
-        status: Optional filter by GoalStatus (e.g., "active", "completed")
-        limit: Maximum number of goals to return (default: 50)
-        db_path: Database path
-        
-    Returns:
-        Dict containing success status and list of goals
-    """
-    ts_start = time.perf_counter()
-    
-    # Validate inputs
-    workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
-    
-    if parent_goal_id is not None:
-        parent_goal_id = _validate_uuid_format(parent_goal_id, "parent_goal_id")
-    
-    # Validate status against GoalStatus enum if provided
-    if status is not None:
-        if not isinstance(status, str):
-            raise ToolInputError("status must be a string.", param_name="status")
-        
-        # Validate against GoalStatus enum
-        try:
-            GoalStatus(status.lower())
-            normalized_status = status.lower()
-        except ValueError as e:
-            valid_statuses = [s.value for s in GoalStatus]
-            raise ToolInputError(
-                f"Invalid status '{status}'. Must be one of: {valid_statuses}",
-                param_name="status"
-            ) from e
-    else:
-        normalized_status = None
-    
-    # Validate limit
-    if limit <= 0:
-        raise ToolInputError("limit must be positive.", param_name="limit")
-    if limit > 1000:  # reasonable upper bound
-        raise ToolInputError("limit cannot exceed 1000.", param_name="limit")
-    
-    logger.info(f"Getting goals for workflow {_fmt_id(workflow_id)} (parent: {_fmt_id(parent_goal_id) if parent_goal_id else 'ROOT'}, status: {normalized_status})")
-    
-    db = DBConnection(db_path)
-    
-    try:
-        async with db.transaction(readonly=True) as conn:
-            # Validate workflow exists
-            workflow_row = await conn.execute_fetchone(
-                "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
-            )
-            if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-            
-            # Build SQL query
-            sql = """
-                SELECT goal_id, parent_goal_id, title, description, status, priority, 
-                       sequence_number, created_at, updated_at, completed_at, 
-                       acceptance_criteria, metadata, reasoning
-                FROM goals 
-                WHERE workflow_id = ?
-            """
-            params = [workflow_id]
-            
-            # Handle parent_goal_id logic
-            if parent_goal_id is None:
-                # Get root goals (where parent_goal_id IS NULL)
-                sql += " AND parent_goal_id IS NULL"
-            else:
-                # Get children of specified parent goal
-                sql += " AND parent_goal_id = ?"
-                params.append(parent_goal_id)
-            
-            # Add status filter if provided
-            if normalized_status is not None:
-                sql += " AND status = ?"
-                params.append(normalized_status)
-            
-            # Order and limit
-            sql += " ORDER BY sequence_number ASC, created_at ASC LIMIT ?"
-            params.append(limit)
-            
-            # Execute query
-            goal_rows = await conn.execute_fetchall(sql, params)
-            
-            # Process results
-            goals = []
-            for row in goal_rows:
-                goal_dict = {
-                    "goal_id": row["goal_id"],
-                    "parent_goal_id": row["parent_goal_id"],
-                    "title": row["title"],
-                    "description": row["description"],
-                    "status": row["status"],
-                    "priority": row["priority"],
-                    "sequence_number": row["sequence_number"],
-                    "reasoning": row["reasoning"],
-                    "created_at": row["created_at"],
-                    "updated_at": row["updated_at"],
-                    "completed_at": row["completed_at"]
-                }
-                
-                # Deserialize JSON fields
-                try:
-                    acceptance_criteria_json = row.get("acceptance_criteria")
-                    acceptance_criteria = await MemoryUtils.deserialize(acceptance_criteria_json)
-                    if not isinstance(acceptance_criteria, list):
-                        acceptance_criteria = []
-                    goal_dict["acceptance_criteria"] = acceptance_criteria
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize acceptance_criteria for goal {row['goal_id']}: {e}")
-                    goal_dict["acceptance_criteria"] = []
-                
-                try:
-                    metadata_json = row.get("metadata")
-                    metadata = await MemoryUtils.deserialize(metadata_json)
-                    if not isinstance(metadata, dict):
-                        metadata = {}
-                    goal_dict["metadata"] = metadata
-                except Exception as e:
-                    logger.warning(f"Failed to deserialize metadata for goal {row['goal_id']}: {e}")
-                    goal_dict["metadata"] = {}
-                
-                # Add ISO timestamps
-                goal_dict["created_at_iso"] = to_iso_z(row["created_at"]) if row["created_at"] else None
-                goal_dict["updated_at_iso"] = to_iso_z(row["updated_at"]) if row["updated_at"] else None
-                goal_dict["completed_at_iso"] = to_iso_z(row["completed_at"]) if row["completed_at"] else None
-                
-                goals.append(goal_dict)
-
-        processing_time = time.perf_counter() - ts_start
-        
-        logger.info(
-            f"Retrieved {len(goals)} goals for workflow {_fmt_id(workflow_id)} "
-            f"(parent: {_fmt_id(parent_goal_id) if parent_goal_id else 'ROOT'}, status: {normalized_status})",
-            emoji_key="target",
-            time=processing_time
-        )
-        
-        return {
-            "success": True,
-            "data": {
-                "goals": goals,
-                "total_count": len(goals),
-                "query_params": {
-                    "workflow_id": workflow_id,
-                    "parent_goal_id": parent_goal_id,
-                    "status": normalized_status,
-                    "limit": limit
-                }
-            },
-            "processing_time": processing_time
-        }
-
-    except ToolInputError:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving goals: {e}", exc_info=True)
-        raise ToolError(f"Failed to retrieve goals: {e}") from e
 
 
 @with_tool_metrics
@@ -11438,7 +11672,7 @@ async def query_goals(
 ) -> Dict[str, Any]:
     """
     Provide flexible querying for goals with advanced filtering and sorting.
-    
+
     Args:
         workflow_id: Required workflow scope
         status: Filter by GoalStatus (e.g., "active", "completed")
@@ -11455,15 +11689,15 @@ async def query_goals(
         limit: Maximum number of goals to return (default: 25)
         offset: Number of goals to skip for pagination (default: 0)
         db_path: Database path
-        
+
     Returns:
         Dict containing success status, goals list, and pagination info
     """
     ts_start = time.perf_counter()
-    
+
     # Validate inputs
     workflow_id = _validate_uuid_format(workflow_id, "workflow_id")
-    
+
     # Validate status if provided
     if status is not None:
         if not isinstance(status, str):
@@ -11474,12 +11708,11 @@ async def query_goals(
         except ValueError as e:
             valid_statuses = [s.value for s in GoalStatus]
             raise ToolInputError(
-                f"Invalid status '{status}'. Must be one of: {valid_statuses}",
-                param_name="status"
+                f"Invalid status '{status}'. Must be one of: {valid_statuses}", param_name="status"
             ) from e
     else:
         normalized_status = None
-    
+
     # Validate priority filters
     if priority is not None and not isinstance(priority, int):
         raise ToolInputError("priority must be an integer.", param_name="priority")
@@ -11487,13 +11720,17 @@ async def query_goals(
         raise ToolInputError("min_priority must be an integer.", param_name="min_priority")
     if max_priority is not None and not isinstance(max_priority, int):
         raise ToolInputError("max_priority must be an integer.", param_name="max_priority")
-    
+
     # Validate timestamp filters
     if created_after_unix is not None and not isinstance(created_after_unix, int):
-        raise ToolInputError("created_after_unix must be an integer.", param_name="created_after_unix")
+        raise ToolInputError(
+            "created_after_unix must be an integer.", param_name="created_after_unix"
+        )
     if created_before_unix is not None and not isinstance(created_before_unix, int):
-        raise ToolInputError("created_before_unix must be an integer.", param_name="created_before_unix")
-    
+        raise ToolInputError(
+            "created_before_unix must be an integer.", param_name="created_before_unix"
+        )
+
     # Validate sort parameters
     allowed_sort_fields = {"priority", "sequence_number", "created_at", "updated_at", "title"}
     sort_fields = [field.strip() for field in sort_by.split(",")]
@@ -11501,12 +11738,12 @@ async def query_goals(
         if field not in allowed_sort_fields:
             raise ToolInputError(
                 f"Invalid sort field '{field}'. Must be one of: {sorted(allowed_sort_fields)}",
-                param_name="sort_by"
+                param_name="sort_by",
             )
-    
+
     if sort_order.upper() not in ("ASC", "DESC"):
         raise ToolInputError("sort_order must be 'ASC' or 'DESC'.", param_name="sort_order")
-    
+
     # Validate pagination
     if limit <= 0:
         raise ToolInputError("limit must be positive.", param_name="limit")
@@ -11514,11 +11751,11 @@ async def query_goals(
         raise ToolInputError("limit cannot exceed 1000.", param_name="limit")
     if offset < 0:
         raise ToolInputError("offset cannot be negative.", param_name="offset")
-    
+
     logger.info(f"Querying goals for workflow {_fmt_id(workflow_id)} with filters")
-    
+
     db = DBConnection(db_path)
-    
+
     try:
         async with db.transaction(readonly=True) as conn:
             # Validate workflow exists
@@ -11526,66 +11763,64 @@ async def query_goals(
                 "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
             if not workflow_row:
-                raise ToolInputError(
-                    f"Workflow {workflow_id} not found.", param_name="workflow_id"
-                )
-            
+                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
+
             # Build WHERE clause dynamically
             where_clauses = ["workflow_id = ?"]
             params = [workflow_id]
-            
+
             # Add filters
             if normalized_status is not None:
                 where_clauses.append("status = ?")
                 params.append(normalized_status)
-            
+
             if priority is not None:
                 where_clauses.append("priority = ?")
                 params.append(priority)
-            
+
             if min_priority is not None:
                 where_clauses.append("priority >= ?")
                 params.append(min_priority)
-            
+
             if max_priority is not None:
                 where_clauses.append("priority <= ?")
                 params.append(max_priority)
-            
+
             if title_contains is not None:
                 where_clauses.append("title LIKE ?")
                 params.append(f"%{title_contains}%")
-            
+
             if description_contains is not None:
                 where_clauses.append("description LIKE ?")
                 params.append(f"%{description_contains}%")
-            
+
             if created_after_unix is not None:
                 where_clauses.append("created_at >= ?")
                 params.append(created_after_unix)
-            
+
             if created_before_unix is not None:
                 where_clauses.append("created_at <= ?")
                 params.append(created_before_unix)
-            
+
             if is_root_goal is not None:
                 if is_root_goal:
                     where_clauses.append("parent_goal_id IS NULL")
                 else:
                     where_clauses.append("parent_goal_id IS NOT NULL")
-            
+
             where_sql = " AND ".join(where_clauses)
-            
+
             # Build ORDER BY clause
             order_clauses = []
             for field in sort_fields:
                 order_clauses.append(f"{field} {sort_order.upper()}")
             order_sql = ", ".join(order_clauses)
-            
+
             # Get total count
             count_sql = f"SELECT COUNT(*) as total FROM goals WHERE {where_sql}"
             count_result = await conn.execute_fetchone(count_sql, params)
             total_matching = count_result["total"] if count_result else 0
-            
+
             # Execute main query
             sql = f"""
                 SELECT goal_id, parent_goal_id, title, description, status, priority, 
@@ -11596,10 +11831,10 @@ async def query_goals(
                 ORDER BY {order_sql}
                 LIMIT ? OFFSET ?
             """
-            
+
             query_params = params + [limit, offset]
             goal_rows = await conn.execute_fetchall(sql, query_params)
-            
+
             # Process results
             goals = []
             for row in goal_rows:
@@ -11614,9 +11849,9 @@ async def query_goals(
                     "reasoning": row["reasoning"],
                     "created_at": row["created_at"],
                     "updated_at": row["updated_at"],
-                    "completed_at": row["completed_at"]
+                    "completed_at": row["completed_at"],
                 }
-                
+
                 # Deserialize JSON fields
                 try:
                     acceptance_criteria_json = row.get("acceptance_criteria")
@@ -11625,9 +11860,11 @@ async def query_goals(
                         acceptance_criteria = []
                     goal_dict["acceptance_criteria"] = acceptance_criteria
                 except Exception as e:
-                    logger.warning(f"Failed to deserialize acceptance_criteria for goal {row['goal_id']}: {e}")
+                    logger.warning(
+                        f"Failed to deserialize acceptance_criteria for goal {row['goal_id']}: {e}"
+                    )
                     goal_dict["acceptance_criteria"] = []
-                
+
                 try:
                     metadata_json = row.get("metadata")
                     metadata = await MemoryUtils.deserialize(metadata_json)
@@ -11637,24 +11874,29 @@ async def query_goals(
                 except Exception as e:
                     logger.warning(f"Failed to deserialize metadata for goal {row['goal_id']}: {e}")
                     goal_dict["metadata"] = {}
-                
+
                 # Add ISO timestamps
-                goal_dict["created_at_iso"] = to_iso_z(row["created_at"]) if row["created_at"] else None
-                goal_dict["updated_at_iso"] = to_iso_z(row["updated_at"]) if row["updated_at"] else None
-                goal_dict["completed_at_iso"] = to_iso_z(row["completed_at"]) if row["completed_at"] else None
-                
+                goal_dict["created_at_iso"] = (
+                    to_iso_z(row["created_at"]) if row["created_at"] else None
+                )
+                goal_dict["updated_at_iso"] = (
+                    to_iso_z(row["updated_at"]) if row["updated_at"] else None
+                )
+                goal_dict["completed_at_iso"] = (
+                    to_iso_z(row["completed_at"]) if row["completed_at"] else None
+                )
+
                 goals.append(goal_dict)
 
         processing_time = time.perf_counter() - ts_start
-        
+
         logger.info(
             f"Queried {len(goals)} goals (of {total_matching} total matching) for workflow {_fmt_id(workflow_id)}",
             emoji_key="target",
-            time=processing_time
+            time=processing_time,
         )
-        
+
         return {
-            "success": True,
             "data": {
                 "goals": goals,
                 "total_matching": total_matching,
@@ -11672,10 +11914,10 @@ async def query_goals(
                     "created_before_unix": created_before_unix,
                     "is_root_goal": is_root_goal,
                     "sort_by": sort_by,
-                    "sort_order": sort_order
-                }
+                    "sort_order": sort_order,
+                },
             },
-            "processing_time": processing_time
+            "processing_time": processing_time,
         }
 
     except ToolInputError:
@@ -11693,11 +11935,11 @@ async def query_goals(
 # --- Helper: Generate Consolidation Prompt (FULL INSTRUCTIONS) ---
 def _generate_consolidation_prompt(memories: List[Dict], consolidation_type: str) -> str:
     """Generates a prompt for memory consolidation based on the type, with full instructions."""
-    # Configurable limits for prompt generation  
+    # Configurable limits for prompt generation
     MAX_MEMORIES_IN_PROMPT = 20
     MAX_CONTENT_PREVIEW_CHARS = 300
     MAX_DESCRIPTION_CHARS = 80
-    
+
     # Format memories as text (Limit input memories and content length for prompt size)
     memory_texts = []
     # Limit source memories included in prompt to avoid excessive length
@@ -11811,14 +12053,14 @@ def _generate_reflection_prompt(
     MAX_OPERATIONS_IN_PROMPT = 30
     MAX_OP_DATA_CHARS = 20
     MAX_MEMORY_DESC_CHARS = 40
-    
+
     formatted_ops: list[str] = []
-    for idx, op in enumerate(operations[:MAX_OPERATIONS_IN_PROMPT], 1):  # cap to keep prompt size sane
+    for idx, op in enumerate(
+        operations[:MAX_OPERATIONS_IN_PROMPT], 1
+    ):  # cap to keep prompt size sane
         ts_unix: int = op.get("timestamp", 0) or 0
         ts_human = (
-            datetime.fromtimestamp(ts_unix).strftime("%Y-m-d %H:%M:%S")
-            if ts_unix
-            else "Unknown-TS"
+            datetime.fromtimestamp(ts_unix).strftime("%Y-m-d %H:%M:%S") if ts_unix else "Unknown-TS"
         )
         op_type = op.get("operation", "UNKNOWN").upper()
         mem_id: str | None = op.get("memory_id")
@@ -11946,7 +12188,9 @@ async def consolidate_memories(
                 if not r:
                     issues.append(f"{mid} not found")
                 elif r["workflow_id"] != effective_wf:
-                    issues.append(f"{mid} is in workflow {r['workflow_id']}, expected {effective_wf}")
+                    issues.append(
+                        f"{mid} is in workflow {r['workflow_id']}, expected {effective_wf}"
+                    )
                 else:
                     source_rows.append(r)
             if issues:
@@ -11961,7 +12205,7 @@ async def consolidate_memories(
                         -(r.get("created_at") or 0),
                     )
                 )
-                source_rows = source_rows[: max_source_memories]
+                source_rows = source_rows[:max_source_memories]
 
         # 1-b. Query-filter branch (already capped by LIMIT ?)
         elif query_filter:
@@ -11983,7 +12227,7 @@ async def consolidate_memories(
             nowu = int(time.time())
             where.append("(ttl = 0 OR created_at + ttl > ?)")
             params.append(nowu)
-            params.append(max_source_memories)          # LIMIT param
+            params.append(max_source_memories)  # LIMIT param
 
             sql = (
                 f"SELECT * FROM memories WHERE {' AND '.join(where)} "
@@ -12002,8 +12246,7 @@ async def consolidate_memories(
                 "ORDER BY importance DESC, created_at DESC LIMIT ?"
             )
             source_rows = [
-                dict(r) async
-                for r in conn.execute(sql, (effective_wf, nowu, max_source_memories))
+                dict(r) async for r in conn.execute(sql, (effective_wf, nowu, max_source_memories))
             ]
 
     if len(source_rows) < 2:
@@ -12040,10 +12283,10 @@ async def consolidate_memories(
             mtype = (
                 store_as_type
                 or {
-                    "summary":    MemoryType.SUMMARY.value,
-                    "insight":    MemoryType.INSIGHT.value,
+                    "summary": MemoryType.SUMMARY.value,
+                    "insight": MemoryType.INSIGHT.value,
                     "procedural": MemoryType.PROCEDURE.value,
-                    "question":   MemoryType.QUESTION.value,
+                    "question": MemoryType.QUESTION.value,
                 }[consolidation_type]
             )
             try:
@@ -12058,7 +12301,7 @@ async def consolidate_memories(
 
             #  Fix-16 → ensure ≥ MIN_CONFIDENCE_SEMANTIC
             conf_raw = max(0.1, min(sum(src_conf) / len(src_conf), 1.0))
-            conf     = round(max(conf_raw, MIN_CONFIDENCE_SEMANTIC), 3)
+            conf = round(max(conf_raw, MIN_CONFIDENCE_SEMANTIC), 3)
 
             res = await store_memory(
                 workflow_id=effective_wf,
@@ -12119,12 +12362,14 @@ async def consolidate_memories(
         emoji_key="sparkles",
     )
     return {
-        "consolidated_content": consolidated or "LLM produced no content.",
-        "consolidation_type": consolidation_type,
-        "source_memory_ids": source_ids,
-        "workflow_id": effective_wf,
-        "stored_memory_id": stored_id,
         "success": True,
+        "data": {
+            "consolidated_content": consolidated or "LLM produced no content.",
+            "consolidation_type": consolidation_type,
+            "source_memory_ids": source_ids,
+            "workflow_id": effective_wf,
+            "stored_memory_id": stored_id,
+        },
         "processing_time": elapsed,
     }
 
@@ -12264,201 +12509,17 @@ async def generate_reflection(
         emoji_key="mirror",
     )
     return {
-        "reflection_id": refl_id,
-        "workflow_id": workflow_id,
-        "reflection_type": reflection_type,
-        "title": title,
-        "content": content,
-        "operations_analyzed": len(ops),
-        "processing_time": elapsed,
         "success": True,
-    }
-
-
-# ======================================================
-# Text Summarization (using LLM)
-# ======================================================
-
-# --- 16. Text Summarization (using LLM) ---
-@with_tool_metrics
-@with_error_handling
-async def summarize_text(
-    text_to_summarize: str,
-    *,
-    target_tokens: int = 500,
-    prompt_template: str | None = None,
-    provider: str = "openai",
-    model: str | None = None,
-    workflow_id: str | None = None,
-    record_summary: bool = False,
-    context_type: str | None = None,          # NEW: optional caller-supplied context tag
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Summarise *text_to_summarize* with an LLM and (optionally) store the result as a memory.
-
-    Returned keys
-    -------------
-    summary, original_length, summary_length,
-    stored_memory_id, success, processing_time
-    """
-    t0 = time.time()
-
-    # ───────── basic validation ─────────
-    if not text_to_summarize:
-        raise ToolInputError("text_to_summarize cannot be empty", param_name="text_to_summarize")
-    if record_summary and not workflow_id:
-        raise ToolInputError(
-            "workflow_id required when record_summary=True", param_name="workflow_id"
-        )
-
-    target_tokens = max(50, min(2_000, target_tokens))
-
-    # ───────── provider / model resolution (FIX #13 & #14) ─────────
-    cfg = get_config()
-    provider_key: str = provider or cfg.default_provider or LLMGatewayProvider.OPENAI.value
-
-    default_models: dict[str, str] = {
-        LLMGatewayProvider.OPENAI.value:     "gpt-4.1-mini",
-        LLMGatewayProvider.ANTHROPIC.value:  "claude-3-5-haiku-20241022",
-    }
-
-    # first attempt to honour explicit `model` or hard-coded defaults
-    model_name: str | None = model or default_models.get(provider_key)
-
-    # initialise provider once (avoid double await + latency)
-    prov = await get_provider(provider_key)
-    if prov is None:
-        raise ToolError(
-            f"LLM provider '{provider_key}' unavailable. "
-            f"Available providers: {', '.join(p.value for p in LLMGatewayProvider)}"
-        )
-
-    # fall back to provider’s own default model if we still have none
-    if model_name is None:
-        model_name = prov.get_default_model()
-
-    # ───────── default prompt (rich version) ─────────
-    if prompt_template is None:
-        prompt_template = (
-            "You are an expert technical writer and editor.\n"
-            "Your task is to produce a **concise, accurate, well-structured summary** "
-            "of the text provided below.\n\n"
-            "**Requirements**\n"
-            "1. Length ≈ {target_tokens} tokens (±10 %).\n"
-            "2. Preserve all critical facts, numbers, names, and causal relationships.\n"
-            "3. Omit anecdotes, filler, or rhetorical questions unless essential to meaning.\n"
-            "4. Write in clear, neutral, third-person prose; bullet lists are welcome where helpful.\n"
-            "5. Do **not** add opinions or external knowledge.\n\n"
-            "---\n"
-            "### ORIGINAL TEXT\n"
-            "{text_to_summarize}\n"
-            "---\n"
-            "### SUMMARY\n"
-        )
-
-    # ───────── LLM invocation ─────────
-    try:
-        prompt = prompt_template.format(
-            text_to_summarize=text_to_summarize,
-            target_tokens=target_tokens,
-        )
-        result = await prov.generate_completion(
-            prompt=prompt,
-            model=model_name,
-            max_tokens=target_tokens + 100,
-            temperature=0.3,
-        )
-        summary = result.text.strip()
-        if not summary:
-            raise ToolError("LLM returned empty summary.")
-    except Exception as exc:
-        logger.error(f"LLM summarisation failed: {exc}", exc_info=True)
-        raise ToolError(f"Failed to generate summary: {exc}") from exc
-
-    stored_memory_id: str | None = None
-
-    # ───────── optional persistence ─────────
-    if record_summary:
-        db = DBConnection(db_path)
-        async with db.transaction() as conn:
-            if not await conn.execute_fetchone(
-                "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
-            ):
-                raise ToolInputError(f"Workflow {workflow_id} not found.", param_name="workflow_id")
-
-            now = int(time.time())
-            stored_memory_id = MemoryUtils.generate_id()
-            tags = {
-                "summary",
-                "automated",
-                "text_summary",
-                MemoryLevel.SEMANTIC.value,
-                MemoryType.SUMMARY.value,
-            }
-            if context_type:
-                tags.add(context_type)
-
-            await conn.execute(
-                """
-                INSERT INTO memories (
-                    memory_id, workflow_id, content,
-                    memory_level, memory_type,
-                    importance, confidence,
-                    description, source, tags,
-                    created_at, updated_at, access_count
-                )
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    stored_memory_id,
-                    workflow_id,
-                    summary,
-                    MemoryLevel.SEMANTIC.value,
-                    MemoryType.SUMMARY.value,
-                    6.0,
-                    0.85,
-                    f"Summary ({context_type or 'ad-hoc'}) of {len(text_to_summarize)}-character text",
-                    "summarize_text_tool",
-                    json.dumps(sorted(tags)),
-                    now,
-                    now,
-                    0,
-                ),
-            )
-
-            await MemoryUtils._log_memory_operation(
-                conn,
-                workflow_id,
-                "create_summary_memory",
-                stored_memory_id,
-                None,
-                {
-                    "original_length": len(text_to_summarize),
-                    "summary_length": len(summary),
-                    "context_type": context_type,
-                },
-            )
-
-    elapsed = time.time() - t0
-    logger.info(
-        f"Summarised {len(text_to_summarize)} chars → {len(summary)} chars "
-        f"({'stored' if stored_memory_id else 'not stored'})",
-        emoji_key="scissors",
-        time=elapsed,
-    )
-
-    return {
-        "summary": summary,
-        "original_length": len(text_to_summarize),
-        "summary_length": len(summary),
-        "stored_memory_id": stored_memory_id,
-        "success": True,
+        "data": {
+            "reflection_id": refl_id,
+            "workflow_id": workflow_id,
+            "reflection_type": reflection_type,
+            "title": title,
+            "content": content,
+            "operations_analyzed": len(ops),
+        },
         "processing_time": elapsed,
     }
-
-
-# --- 17. Maintenance ---
 
 
 @with_tool_metrics
@@ -12470,24 +12531,24 @@ async def diagnose_file_access_issues(
 ) -> Dict[str, Any]:
     """
     Diagnose and provide solutions for file access denied issues.
-    
+
     This tool helps agents understand why file operations are failing and provides
     specific guidance on harmonizing UMS and filesystem.py validation systems.
-    
+
     Args:
         path_to_check: Specific path to check (defaults to database path)
         operation_type: Type of operation ('database', 'artifacts', 'logs')
         db_path: Database path to validate
-        
+
     Returns:
         Dict with comprehensive diagnosis and actionable recommendations
     """
     start_time = time.time()
     import os
     import tempfile
-    
+
     check_path = path_to_check or db_path
-    
+
     diagnosis = {
         "original_path": check_path,
         "operation_type": operation_type,
@@ -12499,26 +12560,22 @@ async def diagnose_file_access_issues(
             "filesystem_tools_available": False,
             "allowed_directories_configured": False,
             "path_in_allowed_dirs": False,
-            "validation_harmonized": False
+            "validation_harmonized": False,
         },
-        "ums_validation": {
-            "passed": False,
-            "fallback_used": False,
-            "final_path": None
-        }
+        "ums_validation": {"passed": False, "fallback_used": False, "final_path": None},
     }
-    
+
     try:
         path_obj = Path(check_path).resolve()
         diagnosis["resolved_path"] = str(path_obj)
-        
+
         # Test UMS validation first
         try:
             validated_ums_path = validate_and_secure_db_path(check_path)
             diagnosis["ums_validation"]["passed"] = True
             diagnosis["ums_validation"]["final_path"] = validated_ums_path
             diagnosis["ums_validation"]["fallback_used"] = validated_ums_path != str(path_obj)
-            
+
             if diagnosis["ums_validation"]["fallback_used"]:
                 diagnosis["issues_found"].append(
                     f"UMS validation rejected original path and used fallback: {validated_ums_path}"
@@ -12526,43 +12583,50 @@ async def diagnose_file_access_issues(
         except Exception as e:
             diagnosis["ums_validation"]["error"] = str(e)
             diagnosis["issues_found"].append(f"UMS validation failed: {e}")
-        
+
         # Check filesystem tools integration
         try:
             from ultimate_mcp_server.tools.filesystem import get_allowed_directories
+
             diagnosis["filesystem_integration"]["filesystem_tools_available"] = True
-            
+
             try:
                 allowed_dirs = get_allowed_directories()
-                diagnosis["filesystem_integration"]["allowed_directories_configured"] = len(allowed_dirs) > 0
+                diagnosis["filesystem_integration"]["allowed_directories_configured"] = (
+                    len(allowed_dirs) > 0
+                )
                 diagnosis["filesystem_integration"]["allowed_directories"] = allowed_dirs
-                
+
                 # Check if path is in allowed directories
                 for allowed_dir in allowed_dirs:
                     try:
                         allowed_path = Path(allowed_dir).resolve()
-                        if str(path_obj).startswith(str(allowed_path) + os.sep) or str(path_obj) == str(allowed_path):
+                        if str(path_obj).startswith(str(allowed_path) + os.sep) or str(
+                            path_obj
+                        ) == str(allowed_path):
                             diagnosis["filesystem_integration"]["path_in_allowed_dirs"] = True
                             break
                     except Exception:
                         continue
-                        
+
             except Exception as e:
                 diagnosis["issues_found"].append(f"Error getting allowed directories: {e}")
-            
+
             # Check filesystem validation availability (lightweight check)
             try:
                 # Just test if validation function is available without calling it
                 diagnosis["filesystem_integration"]["validation_available"] = True
-                
+
                 # For harmonization check, compare the actual paths used by both systems
                 if diagnosis["ums_validation"]["final_path"]:
-                    # Check if UMS final path would be in allowed directories  
+                    # Check if UMS final path would be in allowed directories
                     ums_final = Path(diagnosis["ums_validation"]["final_path"]).resolve()
                     for allowed_dir in allowed_dirs:
                         try:
                             allowed_path = Path(allowed_dir).resolve()
-                            if str(ums_final).startswith(str(allowed_path) + os.sep) or str(ums_final) == str(allowed_path):
+                            if str(ums_final).startswith(str(allowed_path) + os.sep) or str(
+                                ums_final
+                            ) == str(allowed_path):
                                 diagnosis["filesystem_integration"]["validation_harmonized"] = True
                                 break
                         except Exception:
@@ -12575,17 +12639,19 @@ async def diagnose_file_access_issues(
                             f"UMS uses: {diagnosis['ums_validation']['final_path']}, "
                             f"Allowed dirs: {allowed_dirs}"
                         )
-                
+
             except Exception as e:
                 diagnosis["filesystem_integration"]["validation_available"] = False
                 diagnosis["issues_found"].append(f"Filesystem validation check failed: {e}")
-                
+
         except ImportError:
-            diagnosis["issues_found"].append("Filesystem tools not available for unified validation")
+            diagnosis["issues_found"].append(
+                "Filesystem tools not available for unified validation"
+            )
             diagnosis["recommendations"].append(
                 "Enable filesystem.py tools integration for consistent path validation"
             )
-        
+
         # Check basic path properties
         if path_obj.exists():
             diagnosis["path_exists"] = True
@@ -12610,29 +12676,29 @@ async def diagnose_file_access_issues(
                     }
                 except Exception as e:
                     diagnosis["current_permissions"]["error"] = str(e)
-        
+
         # Generate specific recommendations
         if diagnosis["ums_validation"]["final_path"]:
             diagnosis["safe_alternatives"].append(diagnosis["ums_validation"]["final_path"])
-        
+
         # Include filesystem-aware alternatives
         if diagnosis["filesystem_integration"]["filesystem_tools_available"]:
             for allowed_dir in diagnosis["filesystem_integration"].get("allowed_directories", []):
                 candidate = Path(allowed_dir) / "ultimate_mcp_server" / f"{operation_type}"
                 if str(candidate) not in diagnosis["safe_alternatives"]:
                     diagnosis["safe_alternatives"].append(str(candidate))
-        
+
         # Traditional safe alternatives
         traditional_alternatives = [
             str(Path.home() / ".ultimate_mcp_server" / Path(check_path).name),
             str(Path.cwd() / "data" / Path(check_path).name),
             str(Path(tempfile.gettempdir()) / "ultimate_mcp_server" / Path(check_path).name),
         ]
-        
+
         for alt in traditional_alternatives:
             if alt not in diagnosis["safe_alternatives"]:
                 diagnosis["safe_alternatives"].append(alt)
-        
+
         # Provide integration-specific recommendations
         if not diagnosis["filesystem_integration"]["filesystem_tools_available"]:
             diagnosis["recommendations"].append(
@@ -12646,33 +12712,39 @@ async def diagnose_file_access_issues(
             diagnosis["recommendations"].append(
                 f"Move {operation_type} files to one of the allowed directories for consistency"
             )
-        
+
         if not diagnosis["filesystem_integration"]["validation_harmonized"]:
             diagnosis["recommendations"].append(
                 "Update configuration to ensure UMS and filesystem validation use the same rules"
             )
-        
+
         # Provide specific recommendations based on operation type
         if operation_type == "database":
-            diagnosis["recommendations"].extend([
-                "Configure database path in a user-writable directory",
-                "Ensure the UMS config points to ~/.ultimate_mcp_server/",
-                "Avoid system directories like /var, /etc, /usr",
-                "Consider using a path that's also in filesystem.allowed_directories"
-            ])
+            diagnosis["recommendations"].extend(
+                [
+                    "Configure database path in a user-writable directory",
+                    "Ensure the UMS config points to ~/.ultimate_mcp_server/",
+                    "Avoid system directories like /var, /etc, /usr",
+                    "Consider using a path that's also in filesystem.allowed_directories",
+                ]
+            )
         elif operation_type == "artifacts":
-            diagnosis["recommendations"].extend([
-                "Store artifacts in user home directory or project data folder",
-                "Use relative paths within the project workspace",
-                "Ensure artifact paths are within filesystem.allowed_directories"
-            ])
+            diagnosis["recommendations"].extend(
+                [
+                    "Store artifacts in user home directory or project data folder",
+                    "Use relative paths within the project workspace",
+                    "Ensure artifact paths are within filesystem.allowed_directories",
+                ]
+            )
         elif operation_type == "logs":
-            diagnosis["recommendations"].extend([
-                "Configure log directory to ~/.ultimate_mcp_server/logs/",
-                "Ensure log rotation is properly configured",
-                "Verify log directory is accessible to both UMS and filesystem tools"
-            ])
-        
+            diagnosis["recommendations"].extend(
+                [
+                    "Configure log directory to ~/.ultimate_mcp_server/logs/",
+                    "Ensure log rotation is properly configured",
+                    "Verify log directory is accessible to both UMS and filesystem tools",
+                ]
+            )
+
         # Determine overall status
         issues_count = len(diagnosis["issues_found"])
         if issues_count == 0:
@@ -12681,227 +12753,31 @@ async def diagnose_file_access_issues(
             diagnosis["status"] = "NEEDS_ATTENTION"
         else:
             diagnosis["status"] = "CRITICAL"
-        
+
         # Add summary message
-        harmony_status = "harmonized" if diagnosis["filesystem_integration"]["validation_harmonized"] else "conflicted"
-        diagnosis["summary"] = f"File access diagnosis: {diagnosis['status']}. Validation systems: {harmony_status}."
-        
+        harmony_status = (
+            "harmonized"
+            if diagnosis["filesystem_integration"]["validation_harmonized"]
+            else "conflicted"
+        )
+        diagnosis["summary"] = (
+            f"File access diagnosis: {diagnosis['status']}. Validation systems: {harmony_status}."
+        )
+
     except Exception as e:
         diagnosis["status"] = "ERROR"
         diagnosis["error"] = str(e)
         diagnosis["recommendations"].append(
             "Use fallback temporary directory for file operations until issues are resolved"
         )
-    
+
     diagnosis["execution_time"] = time.time() - start_time
     diagnosis["timestamp"] = datetime.now(timezone.utc).isoformat()
-    
-    return diagnosis
 
-
-@with_tool_metrics
-@with_error_handling
-async def get_multi_tool_guidance(
-    context: str = "multi-tool operation",
-    agent_question: Optional[str] = None,
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Provide guidance for agents making multiple UMS tool calls in a single turn.
-    
-    This tool helps agents understand how to effectively use multiple UMS tools
-    together and provides best practices for multi-tool operations.
-    
-    Args:
-        context: Context about what the agent is trying to accomplish
-        agent_question: Specific question about multi-tool usage
-        db_path: Database path
-        
-    Returns:
-        Dict with guidance and best practices
-    """
-    start_time = time.time()
-    
-    guidance = {
-        "multi_tool_best_practices": [
-            "UMS supports multiple tool calls per agent turn",
-            "Use get_rich_context_package first to understand current state",
-            "Combine complementary operations like store_memory + create_memory_link",
-            "Use record_action_start before and record_action_completion after tool sequences",
-            "Tools are designed to work together - no special batching required"
-        ],
-        "common_patterns": {
-            "research_and_store": [
-                "1. get_rich_context_package (understand current context)",
-                "2. search_semantic_memories or hybrid_search_memories (find related info)",
-                "3. store_memory (save new insights)",
-                "4. create_memory_link (connect to existing memories)"
-            ],
-            "comprehensive_analysis": [
-                "1. get_workflow_context (get overview)",
-                "2. get_working_memory (check current focus)",
-                "3. query_memories (gather relevant data)",
-                "4. consolidate_memories (synthesize insights)",
-                "5. record_thought (capture analysis)"
-            ],
-            "goal_oriented_work": [
-                "1. get_goal_stack (understand objectives)",
-                "2. get_recent_actions (see recent progress)",
-                "3. store_memory (record findings)",
-                "4. update_goal_status (mark progress)"
-            ]
-        },
-        "tool_synergies": {
-            "memory_operations": "store_memory + create_memory_link work well together",
-            "context_gathering": "get_rich_context_package provides comprehensive overview",
-            "analysis_workflow": "search + consolidate + reflect creates insight chains",
-            "progress_tracking": "record_action_* + get_recent_actions shows progression"
-        },
-        "performance_tips": [
-            "UMS tools are optimized for concurrent access",
-            "No artificial delays needed between tool calls",
-            "Use appropriate fetch_limits in get_rich_context_package to control response size",
-            "Tools automatically handle database locking and consistency"
-        ]
-    }
-    
-    # Add context-specific guidance
-    if "search" in context.lower():
-        guidance["search_specific"] = {
-            "semantic_search": "Use for concept-based queries",
-            "hybrid_search": "Best for mixed keyword + semantic queries",
-            "query_memories": "Use for structured filtering by metadata"
-        }
-    
-    if "memory" in context.lower():
-        guidance["memory_specific"] = {
-            "storage": "store_memory for new information",
-            "linking": "create_memory_link to connect related memories",
-            "promotion": "promote_memory_level for important insights",
-            "organization": "Use tags and memory_type for categorization"
-        }
-    
-    # Handle specific questions
-    response_message = f"Multi-tool guidance for: {context}"
-    if agent_question:
-        response_message += f"\nRegarding your question: {agent_question}"
-        if "error" in agent_question.lower() or "problem" in agent_question.lower():
-            guidance["troubleshooting"] = {
-                "tool_errors": "Check parameter validity and database connectivity",
-                "performance": "UMS handles multiple calls efficiently - no throttling needed",
-                "consistency": "Tools maintain ACID properties automatically",
-                "logging": "All operations are logged for debugging"
-            }
-    
-    # Add current system status
-    try:
-        stats_result = await compute_memory_statistics(db_path=db_path)
-        if stats_result.get("success"):
-            guidance["current_system_status"] = {
-                "total_memories": stats_result.get("total_memories", 0),
-                "system_responsive": True,
-                "multi_tool_ready": True
-            }
-    except Exception:
-        guidance["current_system_status"] = {
-            "system_responsive": False,
-            "recommendation": "Check database connectivity"
-        }
-    
     return {
         "success": True,
-        "context": context,
-        "agent_question": agent_question,
-        "guidance": guidance,
-        "message": response_message,
-        "processing_time": time.time() - start_time,
-        "note": "UMS fully supports multiple tool calls per turn. No special batching required."
-    }
-
-
-@with_tool_metrics
-@with_error_handling
-async def delete_expired_memories(
-    *,
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Purge memories whose *ttl* has elapsed and write an operation-log entry
-    for each affected workflow.
-
-    Returns
-    -------
-    {
-        deleted_count      : int,
-        workflows_affected : list[str],
-        success            : True,
-        processing_time    : float   # seconds
-    }
-    """
-    t0 = time.time()
-    db = DBConnection(db_path)
-    now_ts = int(time.time())
-
-    deleted_ids: list[str] = []
-    wf_affected: set[str] = set()
-
-    async with db.transaction(mode="IMMEDIATE") as conn:
-        rows = await conn.execute_fetchall(
-            """
-            SELECT memory_id, workflow_id
-            FROM   memories
-            WHERE  ttl > 0
-              AND  created_at + ttl < ?
-            """,
-            (now_ts,),
-        )
-
-        if not rows:
-            return {
-                "deleted_count": 0,
-                "workflows_affected": [],
-                "success": True,
-                "processing_time": time.time() - t0,
-            }
-
-        deleted_ids = [r["memory_id"] for r in rows]
-        wf_affected = {r["workflow_id"] for r in rows}
-
-        # batch delete (SQLITE_MAX_VARIABLE_NUMBER ≈ 999)
-        BATCH = 500
-        for i in range(0, len(deleted_ids), BATCH):
-            batch = deleted_ids[i : i + BATCH]
-            ph = ",".join("?" * len(batch))
-            await conn.execute(f"DELETE FROM memories WHERE memory_id IN ({ph})", batch)
-
-        # per-workflow operation log
-        for wf in wf_affected:
-            expired_here = sum(r["workflow_id"] == wf for r in rows)
-            await MemoryUtils._log_memory_operation(
-                conn,
-                wf,
-                "expire_batch",
-                None,  # memory_id
-                None,  # action_id
-                {
-                    "expired_count_in_workflow": expired_here,
-                    "total_expired_this_run": len(deleted_ids),
-                },
-            )
-    # ────────────── transaction committed ──────────────
-
-    dt = time.time() - t0
-    logger.success(
-        f"Expired-memory sweep removed {len(deleted_ids)} rows "
-        f"across {len(wf_affected)} workflows.",
-        emoji_key="wastebasket",
-        time=dt,
-    )
-    return {
-        "deleted_count": len(deleted_ids),
-        "workflows_affected": sorted(wf_affected),
-        "success": True,
-        "processing_time": dt,
+        "data": diagnosis,
+        "processing_time": diagnosis.pop("execution_time"),
     }
 
 
@@ -12916,46 +12792,46 @@ async def start_batch_operation(
 ) -> Dict[str, Any]:
     """
     Start a batch of UMS tool operations for an agent turn.
-    
-    This tool should be called at the beginning of a turn where the agent 
+
+    This tool should be called at the beginning of a turn where the agent
     plans to make multiple UMS tool calls in sequence.
-    
+
     Args:
         workflow_id: The workflow context for this batch
         batch_description: Human-readable description of what this batch will do
         expected_tools: Optional list of tool names that will be called
         metadata: Optional metadata to associate with this batch
         db_path: Database path
-        
+
     Returns:
         Dict with batch_id and context information
     """
     start_time = time.time()
-    
+
     # Generate a unique batch ID
     batch_id = f"batch_{uuid.uuid4().hex[:12]}"
-    
+
     # Get current batch context or create new one
     current_batch = get_current_batch()
     if current_batch:
         logger.warning(
             f"Batch operation already in progress ({current_batch['batch_id']}), "
             f"starting nested batch {batch_id}",
-            emoji_key="warning"
+            emoji_key="warning",
         )
-    
+
     # Start the batch context
     batch_context = UMSBatchContext(batch_id=batch_id, metadata=metadata)  # noqa: F841
-    
+
     # Log the batch start
     logger.info(
         f"Started UMS batch operation: {batch_description} (ID: {batch_id})",
-        emoji_key="batch_start"
+        emoji_key="batch_start",
     )
-    
+
     if expected_tools:
         logger.debug(f"Expected tools in batch: {', '.join(expected_tools)}")
-    
+
     # Store batch info for tracking
     try:
         async with DBConnection(db_path).transaction() as conn:
@@ -12965,25 +12841,27 @@ async def start_batch_operation(
                 "description": batch_description,
                 "expected_tools": expected_tools,
                 "metadata": metadata,
-                "start_time": start_time
+                "start_time": start_time,
             }
-            
+
             operation_id = await MemoryUtils._log_memory_operation(  # noqa: F841
                 conn, workflow_id, "batch_start", operation_data=operation_data
             )
-            
+
     except Exception as e:
         logger.warning(f"Failed to log batch start operation: {e}")
         # Don't fail the entire operation for logging issues
-    
+
     return {
         "success": True,
-        "batch_id": batch_id,
-        "workflow_id": workflow_id,
-        "description": batch_description,
-        "expected_tools": expected_tools or [],
-        "started_at": to_iso_z(start_time),
-        "message": f"Batch operation {batch_id} started. Ready for multi-tool operations."
+        "data": {
+            "batch_id": batch_id,
+            "workflow_id": workflow_id,
+            "description": batch_description,
+            "expected_tools": expected_tools or [],
+            "started_at": to_iso_z(start_time),
+            "message": f"Batch operation {batch_id} started. Ready for multi-tool operations.",
+        },
     }
 
 
@@ -13006,6 +12884,7 @@ async def get_rich_context_package(
     include_recent_actions: bool = True,
     include_contradictions: bool = True,
     max_memories: int = 20,
+    include_goal_stack: bool = False,
     compression_token_threshold: Optional[int] = None,
     compression_target_tokens: Optional[int] = None,
     db_path: str = agent_memory_config.db_path,
@@ -13013,11 +12892,9 @@ async def get_rich_context_package(
     """
     Assemble a *rich* context package for the agent master-loop (AML).
 
-    All existing functionality is preserved — limits, optional sections,
-    UMS-side compression, error tracking, focal-memory propagation, etc.
-    Now includes enhanced support for graph structures, goal focusing,
-    contradiction detection, and agent-loop compatible response format.
-    
+    Uses direct database queries within a single transaction context instead of calling other UMS tools,
+    improving performance and error handling. Returns proper success/error envelope format.
+
     Args:
         workflow_id: Required workflow scope
         focus_goal_id: Optional goal ID to focus context around
@@ -13035,6 +12912,7 @@ async def get_rich_context_package(
         include_recent_actions: Include recent actions data
         include_contradictions: Include contradiction detection
         max_memories: Maximum number of memories to include in proactive search
+        include_goal_stack: Include goal hierarchy/tree data
         compression_token_threshold: Token threshold for compression
         compression_target_tokens: Target tokens after compression
         db_path: Database path
@@ -13048,28 +12926,30 @@ async def get_rich_context_package(
         logger.info(
             f"get_rich_context_package called within batch {current_batch['batch_id']} "
             f"for workflow {workflow_id}",
-            emoji_key="package"
+            emoji_key="package",
         )
         # Record this tool call in the batch context
-        current_batch['tool_calls'].append({
-            'tool_name': 'get_rich_context_package',
-            'workflow_id': workflow_id,
-            'focus_goal_id': focus_goal_id,
-            'timestamp': start_time
-        })
+        current_batch["tool_calls"].append(
+            {
+                "tool_name": "get_rich_context_package",
+                "workflow_id": workflow_id,
+                "focus_goal_id": focus_goal_id,
+                "timestamp": start_time,
+            }
+        )
     else:
         logger.debug(f"get_rich_context_package called for workflow {workflow_id} (standalone)")
 
     assembled: Dict[str, Any] = {"retrieval_timestamp_ums_package": retrieval_ts}
     errors: List[str] = []
     focal_mem_id_for_links: Optional[str] = focal_memory_id_hint
-    
+
     # Add batch info to the response if we're in a batch
     if current_batch:
         assembled["batch_context"] = {
-            "batch_id": current_batch['batch_id'],
+            "batch_id": current_batch["batch_id"],
             "is_multi_tool_turn": True,
-            "call_number": len(current_batch['tool_calls'])
+            "call_number": len(current_batch["tool_calls"]),
         }
 
     # Set up limits - use max_memories for proactive search
@@ -13079,93 +12959,193 @@ async def get_rich_context_package(
     lim_actions = fetch_limits.get("recent_actions", UMS_PKG_DEFAULT_FETCH_RECENT_ACTIONS)
     lim_imp_mems = fetch_limits.get("important_memories", UMS_PKG_DEFAULT_FETCH_IMPORTANT_MEMORIES)
     lim_key_thts = fetch_limits.get("key_thoughts", UMS_PKG_DEFAULT_FETCH_KEY_THOUGHTS)
-    lim_proactive = min(max_memories, fetch_limits.get("proactive_memories", UMS_PKG_DEFAULT_FETCH_PROACTIVE))
+    lim_proactive = min(
+        max_memories, fetch_limits.get("proactive_memories", UMS_PKG_DEFAULT_FETCH_PROACTIVE)
+    )
     lim_procedural = fetch_limits.get("procedural_memories", UMS_PKG_DEFAULT_FETCH_PROCEDURAL)
     lim_links = fetch_limits.get("link_traversal", UMS_PKG_DEFAULT_FETCH_LINKS)
 
     lim_show_links_summary = show_limits.get("link_traversal", UMS_PKG_DEFAULT_SHOW_LINKS_SUMMARY)
 
-    # ─────────────────────────── 0. Validation ───────────────────────────
+    # Helper function to safely format timestamps
+    def to_iso_z(ts):
+        return safe_format_timestamp(ts)
+
     db = DBConnection(db_path)
+
     try:
         async with db.transaction(readonly=True) as conn:
-            row = await conn.execute_fetchone(
-                "SELECT 1 FROM workflows WHERE workflow_id = ?", (workflow_id,)
+            # 0. Validate workflow
+            wf_check_row = await conn.execute_fetchone(
+                "SELECT title, goal, status FROM workflows WHERE workflow_id = ?", (workflow_id,)
             )
-            if row is None:
+            if wf_check_row is None:
+                # This is a critical failure for this tool.
                 return {
                     "success": False,
                     "error_message": f"Target workflow_id '{workflow_id}' not found in UMS.",
+                    "error_type": "WorkflowNotFound",
                     "processing_time": time.time() - start_time,
                 }
-    except Exception as exc:
-        logger.error("UMS Package: workflow validation failed", exc_info=True)
+
+            # 1. Core context (direct query)
+            if include_core_context:
+                try:
+                    # Fetch core workflow details directly
+                    core_wf_data = dict(wf_check_row)
+
+                    # Fetch key thoughts directly
+                    key_thoughts_list = []
+                    chain_id_row_core = await conn.execute_fetchone(
+                        "SELECT thought_chain_id FROM thought_chains WHERE workflow_id = ? ORDER BY created_at ASC LIMIT 1",
+                        (workflow_id,),
+                    )
+                    if chain_id_row_core:
+                        thought_rows_core = await conn.execute_fetchall(
+                            """SELECT thought_type, content, sequence_number, created_at FROM thoughts
+                               WHERE thought_chain_id = ? AND thought_type IN (?, ?, ?, ?, ?, ?)
+                               ORDER BY sequence_number DESC LIMIT ?""",
+                            (
+                                chain_id_row_core["thought_chain_id"],
+                                ThoughtType.GOAL.value,
+                                ThoughtType.DECISION.value,
+                                ThoughtType.REASONING.value,
+                                ThoughtType.ANALYSIS.value,
+                                ThoughtType.SUMMARY.value,
+                                ThoughtType.REFLECTION.value,
+                                lim_key_thts,
+                            ),
+                        )
+                        key_thoughts_list = [dict(r) for r in thought_rows_core]
+                        for th_core in key_thoughts_list:  # Add ISO timestamps
+                            if th_core.get("created_at"):
+                                th_core["created_at_iso"] = to_iso_z(th_core["created_at"])
+
+                    # Fetch important memories directly
+                    important_memories_list = []
+                    mem_rows_imp = await conn.execute_fetchall(
+                        """SELECT memory_id, description, memory_type, importance FROM memories
+                           WHERE workflow_id = ? AND (ttl = 0 OR created_at + ttl > ?)
+                           ORDER BY importance DESC LIMIT ?""",
+                        (workflow_id, int(time.time()), lim_imp_mems),
+                    )
+                    important_memories_list = [dict(r) for r in mem_rows_imp]
+
+                    assembled["core_context"] = {
+                        "workflow_id": workflow_id,
+                        "workflow_title": core_wf_data["title"],
+                        "workflow_goal": core_wf_data["goal"],
+                        "workflow_status": core_wf_data["status"],
+                        "key_thoughts": key_thoughts_list,
+                        "important_memories": important_memories_list,
+                        "retrieved_at": retrieval_ts,
+                    }
+                except Exception as exc_core:
+                    msg = f"Core context direct retrieval failed: {exc_core}"
+                    errors.append(f"UMS Package: {msg}")
+                    logger.error(msg, exc_info=True)
+                    assembled["core_context"] = {"error": msg}
+
+            # 2. Working memory (direct query if context_id provided)
+            if include_working_memory and context_id:
+                try:
+                    state_row_wm = await conn.execute_fetchone(
+                        "SELECT working_memory, focal_memory_id FROM cognitive_states WHERE state_id = ? AND workflow_id = ?",
+                        (context_id, workflow_id),
+                    )
+                    if state_row_wm:
+                        working_memory_ids_json = state_row_wm["working_memory"]
+                        focal_memory_id_from_state = state_row_wm["focal_memory_id"]
+                        working_memory_ids_list = (
+                            await MemoryUtils.deserialize(working_memory_ids_json) or []
+                        )
+
+                        fetched_wm_details = []
+                        if working_memory_ids_list:
+                            placeholders_wm = ",".join("?" * len(working_memory_ids_list))
+                            mem_rows_wm = await conn.execute_fetchall(
+                                f"""SELECT memory_id, description, memory_type, content, importance 
+                                   FROM memories WHERE memory_id IN ({placeholders_wm}) AND workflow_id = ?""",
+                                (*working_memory_ids_list, workflow_id),
+                            )
+                            mem_map_wm = {r["memory_id"]: dict(r) for r in mem_rows_wm}
+                            for (
+                                mem_id_wm
+                            ) in working_memory_ids_list:  # Preserve order from cognitive state
+                                if mem_id_wm in mem_map_wm:
+                                    detail = mem_map_wm[mem_id_wm]
+                                    if detail.get("content") and len(detail["content"]) > 150:
+                                        detail["content_preview"] = detail["content"][:147] + "..."
+                                    fetched_wm_details.append(detail)
+
+                        assembled["current_working_memory"] = {
+                            "retrieved_at": retrieval_ts,
+                            "context_id": context_id,
+                            "focal_memory_id": focal_memory_id_from_state,
+                            "working_memories": fetched_wm_details,
+                        }
+                        if focal_memory_id_from_state:
+                            focal_mem_id_for_links = focal_memory_id_from_state
+                    else:
+                        msg = f"Working memory context_id '{context_id}' not found for workflow '{workflow_id}'."
+                        errors.append(f"UMS Package: {msg}")
+                        logger.warning(msg)
+                        assembled["current_working_memory"] = {"error": msg, "working_memories": []}
+                except Exception as exc_wm:
+                    msg = (
+                        f"Exception fetching working memory directly for context package: {exc_wm}"
+                    )
+                    errors.append(f"UMS Package: {msg}")
+                    logger.error(msg, exc_info=True)
+                    assembled["current_working_memory"] = {"error": msg, "working_memories": []}
+
+            # 3. Recent Actions (direct query) - include in core_context structure
+            if include_recent_actions:
+                try:
+                    action_rows = await conn.execute_fetchall(
+                        """SELECT action_id, action_type, title, status, started_at 
+                           FROM actions WHERE workflow_id = ? ORDER BY sequence_number DESC LIMIT ?""",
+                        (workflow_id, lim_actions),
+                    )
+                    recent_actions_list = []
+                    for r_act in action_rows:
+                        act_dict = dict(r_act)
+                        if act_dict.get("started_at"):
+                            act_dict["started_at_iso"] = to_iso_z(act_dict["started_at"])
+                        recent_actions_list.append(act_dict)
+                    # Add recent_actions to core_context AND as separate key for agent compatibility
+                    if assembled.get("core_context"):
+                        assembled["core_context"]["recent_actions"] = recent_actions_list
+                    assembled["recent_actions"] = recent_actions_list
+                except Exception as exc_actions:
+                    msg = f"Recent actions direct retrieval failed: {exc_actions}"
+                    errors.append(f"UMS Package: {msg}")
+                    logger.error(msg, exc_info=True)
+                    error_result = [{"error": msg}]
+                    if assembled.get("core_context"):
+                        assembled["core_context"]["recent_actions"] = error_result
+                    assembled["recent_actions"] = error_result
+
+    except Exception as outer_exc:
+        # Catch errors during the database transaction itself
+        logger.error(
+            f"UMS Package: Database transaction error for get_rich_context_package: {outer_exc}",
+            exc_info=True,
+        )
         return {
             "success": False,
-            "error_message": f"Workflow ID validation failed: {exc}",
+            "error_message": f"Failed to assemble context due to DB error: {outer_exc}",
+            "error_type": "DatabaseError",
             "processing_time": time.time() - start_time,
         }
 
-    # ─────────────────────────── 1. Core context ─────────────────────────
-    if include_core_context:
-        try:
-            core_res = await get_workflow_context(
-                workflow_id=workflow_id,
-                recent_actions_limit=lim_actions if include_recent_actions else 0,
-                important_memories_limit=lim_imp_mems,
-                key_thoughts_limit=lim_key_thts,
-                db_path=db_path,
-            )
-            if core_res.get("success"):
-                assembled["core_context"] = {
-                    **{
-                        k: v for k, v in core_res.items() if k not in ("success", "processing_time")
-                    },
-                    "retrieved_at": retrieval_ts,
-                }
-                
-                # Extract recent actions for agent compatibility
-                if include_recent_actions and "recent_actions" in assembled["core_context"]:
-                    assembled["recent_actions"] = assembled["core_context"]["recent_actions"]
-            else:
-                msg = f"Core context retrieval failed: {core_res.get('error')}"
-                errors.append(f"UMS Package: {msg}")
-                logger.warning(msg)
-        except Exception as exc:
-            msg = f"Exception in get_workflow_context: {exc}"
-            errors.append(f"UMS Package: {msg}")
-            logger.error(msg, exc_info=True)
-
-    # ─────────────────────────── 2. Working memory ───────────────────────
-    if include_working_memory and context_id:
-        try:
-            wm_res = await get_working_memory(
-                context_id=context_id,
-                include_content=False,
-                include_links=False,
-                db_path=db_path,
-            )
-            if wm_res.get("success"):
-                assembled["current_working_memory"] = {
-                    **{k: v for k, v in wm_res.items() if k not in ("success", "processing_time")},
-                    "retrieved_at": retrieval_ts,
-                }
-                focal_mem_id_for_links = wm_res.get("focal_memory_id") or focal_mem_id_for_links
-            else:
-                msg = f"Working memory retrieval failed: {wm_res.get('error')}"
-                errors.append(f"UMS Package: {msg}")
-                logger.warning(msg)
-        except Exception as exc:
-            msg = f"Exception in get_working_memory: {exc}"
-            errors.append(f"UMS Package: {msg}")
-            logger.error(msg, exc_info=True)
-
-    # ─────────────────────────── 3. Proactive / procedural ───────────────
+    # After the transaction completes, call other UMS tools that require their own transaction contexts
     search_source = current_plan_step_description or "current agent objectives"
     if focus_goal_id:
         # Don't include the actual goal ID in search terms as it can break FTS parsing
         search_source += f" (focused on goal: {_fmt_id(focus_goal_id)})"
 
+    # 4. Proactive memories (using hybrid search)
     if include_proactive_memories:
         try:
             q = f"Information relevant to current task or goal: {search_source}"
@@ -13179,17 +13159,21 @@ async def get_rich_context_package(
                 db_path=db_path,
             )
             if pr_res.get("success"):
+                data = pr_res.get("data", {})
                 assembled["proactive_memories"] = {
                     "retrieved_at": retrieval_ts,
                     "query_used": q,
-                    "memories": pr_res.get("memories", []),
+                    "memories": data.get("memories", []),
                 }
             else:
-                errors.append(f"UMS Package: Proactive search failed: {pr_res.get('error')}")
+                errors.append(
+                    f"UMS Package: Proactive search failed: {pr_res.get('error_message', 'Unknown error')}"
+                )
         except Exception as exc:
             errors.append(f"UMS Package: Proactive search exception: {exc}")
             logger.error("Proactive search error", exc_info=True)
 
+    # 5. Procedural memories (using hybrid search)
     if include_relevant_procedures:
         try:
             q = f"How to accomplish, perform, or execute: {search_source}"
@@ -13202,18 +13186,21 @@ async def get_rich_context_package(
                 db_path=db_path,
             )
             if proc_res.get("success"):
+                data = proc_res.get("data", {})
                 assembled["relevant_procedures"] = {
                     "retrieved_at": retrieval_ts,
                     "query_used": q,
-                    "procedures": proc_res.get("memories", []),
+                    "procedures": data.get("memories", []),
                 }
             else:
-                errors.append(f"UMS Package: Procedural search failed: {proc_res.get('error')}")
+                errors.append(
+                    f"UMS Package: Procedural search failed: {proc_res.get('error_message', 'Unknown error')}"
+                )
         except Exception as exc:
             errors.append(f"UMS Package: Procedural search exception: {exc}")
             logger.error("Procedural search error", exc_info=True)
 
-    # ─────────────────────────── 4. Graph snapshot ───────────────────────
+    # 6. Graph snapshot
     if include_graph:
         try:
             # Try to find a good starting node for the subgraph
@@ -13223,28 +13210,25 @@ async def get_rich_context_package(
                 imp_mems = assembled.get("core_context", {}).get("important_memories", [])
                 if imp_mems:
                     start_node_for_graph = imp_mems[0].get("memory_id")
-            
+
             if start_node_for_graph:
-                # Use the new NetworkX-powered get_subgraph with enhanced analysis
+                # Use the NetworkX-powered get_subgraph with enhanced analysis
                 graph_res = await get_subgraph(
                     workflow_id=workflow_id,
                     start_node_id=start_node_for_graph,
-                    algorithm="ego_graph",  # Replaces direction="both" 
+                    algorithm="ego_graph",
                     max_hops=2,
-                    max_nodes=min(30, max_memories + 10),  # Renamed from max_nodes_returned
-                    link_type_filter=None,  # Could filter to specific relationship types
-                    
-                    # Enable some analysis for richer context
+                    max_nodes=min(30, max_memories + 10),
+                    link_type_filter=None,
                     compute_centrality=True,
-                    centrality_algorithms=["pagerank"],  # Just PageRank for context
-                    compute_graph_metrics=True,  # Basic graph stats
-                    detect_communities=False,  # Skip for performance in context gathering
-                    
+                    centrality_algorithms=["pagerank"],
+                    compute_graph_metrics=True,
+                    detect_communities=False,
                     include_node_content=False,
                     centrality_top_k=10,
                     db_path=db_path,
                 )
-                
+
                 if graph_res.get("success") and graph_res.get("data"):
                     graph_data = graph_res["data"]
                     assembled["graph_snapshot"] = {
@@ -13255,28 +13239,28 @@ async def get_rich_context_package(
                         "edges": graph_data.get("edges", []),
                         "node_count": graph_data.get("node_count", 0),
                         "edge_count": graph_data.get("edge_count", 0),
-                        
-                        # Include NetworkX analysis results if available
                         "centrality": graph_data.get("centrality", {}),
                         "graph_metrics": graph_data.get("graph_metrics", {}),
                     }
                 else:
-                    errors.append(f"UMS Package: Graph snapshot failed: {graph_res.get('error_message', 'Unknown error')}")
+                    errors.append(
+                        f"UMS Package: Graph snapshot failed: {graph_res.get('error_message', 'Unknown error')}"
+                    )
             else:
                 # Try full graph analysis if no starting node found
                 try:
                     graph_res = await get_subgraph(
                         workflow_id=workflow_id,
-                        start_node_id=None,  # No specific start node
-                        algorithm="full_graph",  # Get representative sample
-                        max_nodes=min(20, max_memories),  # Smaller for full graph
+                        start_node_id=None,
+                        algorithm="full_graph",
+                        max_nodes=min(20, max_memories),
                         compute_centrality=True,
                         centrality_algorithms=["pagerank"],
                         compute_graph_metrics=True,
                         include_node_content=False,
                         db_path=db_path,
                     )
-                    
+
                     if graph_res.get("success") and graph_res.get("data"):
                         graph_data = graph_res["data"]
                         assembled["graph_snapshot"] = {
@@ -13289,17 +13273,16 @@ async def get_rich_context_package(
                             "edge_count": graph_data.get("edge_count", 0),
                             "centrality": graph_data.get("centrality", {}),
                             "graph_metrics": graph_data.get("graph_metrics", {}),
-                            "note": "Full graph sample - no specific starting node"
+                            "note": "Full graph sample - no specific starting node",
                         }
                     else:
-                        # Create empty graph snapshot as fallback
                         assembled["graph_snapshot"] = {
                             "retrieved_at": retrieval_ts,
                             "nodes": [],
                             "edges": [],
                             "node_count": 0,
                             "edge_count": 0,
-                            "note": "No suitable starting node found and full graph failed"
+                            "note": "No suitable starting node found and full graph failed",
                         }
                 except Exception as fallback_exc:
                     assembled["graph_snapshot"] = {
@@ -13308,19 +13291,19 @@ async def get_rich_context_package(
                         "edges": [],
                         "node_count": 0,
                         "edge_count": 0,
-                        "note": f"Graph analysis failed: {str(fallback_exc)}"
+                        "note": f"Graph analysis failed: {str(fallback_exc)}",
                     }
-                    
+
         except Exception as exc:
             errors.append(f"UMS Package: Graph snapshot exception: {exc}")
             logger.error("Graph snapshot error", exc_info=True)
 
-    # ─────────────────────────── 5. Contradiction detection ──────────────
+    # 7. Contradiction detection
     if include_contradictions:
         try:
             contradiction_res = await get_contradictions(
                 workflow_id=workflow_id,
-                limit=min(10, max_memories // 2),  # Reasonable limit
+                limit=min(10, max_memories // 2),
                 include_resolved=False,
                 db_path=db_path,
             )
@@ -13332,12 +13315,38 @@ async def get_rich_context_package(
                     "total_found": contradictions_data.get("total_found", 0),
                 }
             else:
-                errors.append(f"UMS Package: Contradiction detection failed: {contradiction_res.get('error')}")
+                errors.append(
+                    f"UMS Package: Contradiction detection failed: {contradiction_res.get('error_message', 'Unknown error')}"
+                )
         except Exception as exc:
             errors.append(f"UMS Package: Contradiction detection exception: {exc}")
             logger.error("Contradiction detection error", exc_info=True)
 
-    # ─────────────────────────── 6. Contextual links ─────────────────────
+    # 8. Goal Stack (Tree)
+    if include_goal_stack:
+        try:
+            goal_stack_res = await get_goal_stack(
+                workflow_id=workflow_id,
+                include_completed=False,
+                include_metadata=False,
+                db_path=db_path,
+            )
+            if goal_stack_res.get("success"):
+                data = goal_stack_res.get("data", {})
+                assembled["goal_stack"] = {
+                    "retrieved_at": retrieval_ts,
+                    "goal_tree": data.get("goal_tree", []),
+                    "total_goals": data.get("total_goals", 0),
+                }
+            else:
+                errors.append(
+                    f"UMS Package: Goal stack retrieval failed: {goal_stack_res.get('error_message', 'Unknown error')}"
+                )
+        except Exception as exc:
+            errors.append(f"UMS Package: Goal stack retrieval exception: {exc}")
+            logger.error("Goal stack retrieval error", exc_info=True)
+
+    # 9. Contextual links
     if include_contextual_links:
         link_seed = focal_mem_id_for_links
         if link_seed is None:
@@ -13355,7 +13364,8 @@ async def get_rich_context_package(
                     db_path=db_path,
                 )
                 if link_res.get("success"):
-                    payload = link_res["links"]
+                    data = link_res.get("data", {})
+                    payload = data.get("links", {})
                     asm = {
                         "source_memory_id": link_seed,
                         "outgoing_count": len(payload.get("outgoing", [])),
@@ -13379,12 +13389,14 @@ async def get_rich_context_package(
                     }
                     assembled["contextual_links"] = {"retrieved_at": retrieval_ts, "summary": asm}
                 else:
-                    errors.append(f"UMS Package: Link retrieval failed: {link_res.get('error')}")
+                    errors.append(
+                        f"UMS Package: Link retrieval failed: {link_res.get('error_message', 'Unknown error')}"
+                    )
             except Exception as exc:
                 errors.append(f"UMS Package: Link retrieval exception: {exc}")
                 logger.error("Link retrieval error", exc_info=True)
 
-    # ─────────────────────────── 7. Compression ─────────────────────────
+    # 10. Compression
     if compression_token_threshold is not None and compression_target_tokens is not None:
         try:
             pkg_json = json.dumps(assembled, default=str)
@@ -13427,7 +13439,7 @@ async def get_rich_context_package(
                         record_summary=False,
                         db_path=db_path,
                     )
-                    if sum_res.get("success") and sum_res.get("summary"):
+                    if sum_res.get("success") and sum_res.get("data", {}).get("summary"):
                         # replace component with marker + preview
                         keys = target_key.split(".")
                         ref = assembled
@@ -13442,16 +13454,16 @@ async def get_rich_context_package(
                             "retrieved_at": original_rt,
                             "_ums_compressed_": True,
                             "original_token_estimate": max_tok,
-                            "summary_preview": sum_res["summary"][:150] + "…",
+                            "summary_preview": sum_res["data"]["summary"][:150] + "…",
                         }
                         assembled.setdefault("ums_compression_details", {})[target_key] = {
-                            "summary_content": sum_res["summary"],
+                            "summary_content": sum_res["data"]["summary"],
                             "retrieved_at": retrieval_ts,
                         }
                         logger.info(f"Compressed component '{target_key}' in context package.")
                     else:
                         errors.append(
-                            f"UMS Package: Compression of '{target_key}' failed: {sum_res.get('error')}"
+                            f"UMS Package: Compression of '{target_key}' failed: {sum_res.get('error_message', 'Unknown error')}"
                         )
             else:
                 logger.debug(f"Context {workflow_id} size {tok_est} within threshold.")
@@ -13459,144 +13471,49 @@ async def get_rich_context_package(
             errors.append(f"UMS Package: Compression exception: {exc}")
             logger.error("Compression error", exc_info=True)
 
-    # ─────────────────────────── 8. Final wrap (Agent-compatible format) ──────────────────────────
+    # Final check for essential components
+    if not assembled.get("core_context"):
+        errors.append("UMS Package Critical: Core context could not be assembled.")
+    if (
+        include_working_memory
+        and context_id
+        and not assembled.get("current_working_memory", {}).get("working_memories")
+        and "error" not in assembled.get("current_working_memory", {})
+    ):
+        # Only add error if working memory was expected but is empty AND no error was already logged for it
+        errors.append(
+            "UMS Package Warning: Working memory was requested but is empty or could not be retrieved."
+        )
+
+    if "UMS Package Critical: Core context could not be assembled." in errors:
+        final_error_msg = "; ".join(errors)
+        logger.error(f"Rich context package for {workflow_id} critically failed: {final_error_msg}")
+        return {
+            "success": False,
+            "error_message": final_error_msg,
+            "error_type": "ContextAssemblyCriticalFailure",
+            "data": {"context_package": assembled},  # Return partial for debug
+            "processing_time": time.time() - start_time,
+        }
+
+    # If successful or only minor errors:
     resp = {
-        "success": not errors,
-        "data": {
-            "context_package": assembled
-        },
+        "success": True,
+        "data": {"context_package": assembled},
         "processing_time": time.time() - start_time,
     }
-    
     if errors:
-        resp["error_message"] = "; ".join(errors)
-        logger.warning(f"get_rich_context_package for {workflow_id} completed with errors.")
-    else:
-        logger.info(f"get_rich_context_package for {workflow_id} succeeded.")
-    
-    return resp
-
-# --- 18. Statistics ---
-@with_tool_metrics
-@with_error_handling
-async def compute_memory_statistics(
-    workflow_id: Optional[str] = None,  # None → global stats
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Compute memory / link statistics.  Now runs inside a *read-only* snapshot
-    and tolerates legacy NULLs for numeric columns.
-    """
-    start_time = time.time()
-    stats: Dict[str, Any] = {"scope": workflow_id or "global"}
-    db = DBConnection(db_path)
-
-    try:
-        async with db.transaction(readonly=True) as conn:
-            # --- base WHERE + params ----------------------------------------
-            where_clause = "WHERE workflow_id = ?" if workflow_id else ""
-            params: list[Any] = [workflow_id] if workflow_id else []
-
-            # --- totals ------------------------------------------------------
-            row = await conn.execute_fetchone(
-                f"SELECT COUNT(*) AS cnt FROM memories {where_clause}", params
-            )
-            total_mem = row["cnt"] if row and row["cnt"] is not None else 0
-            stats["total_memories"] = total_mem
-
-            if total_mem == 0:
-                stats.update({"success": True, "processing_time": time.time() - start_time})
-                logger.info(f"No memories found for statistics in scope: {stats['scope']}")
-                return stats
-
-            # --- by level ----------------------------------------------------
-            lv_rows = await conn.execute_fetchall(
-                f"SELECT memory_level, COUNT(*) AS c FROM memories {where_clause} GROUP BY memory_level",
-                params,
-            )
-            stats["by_level"] = {r["memory_level"]: r["c"] for r in lv_rows}
-
-            # --- by type -----------------------------------------------------
-            tp_rows = await conn.execute_fetchall(
-                f"SELECT memory_type, COUNT(*) AS c FROM memories {where_clause} GROUP BY memory_type",
-                params,
-            )
-            stats["by_type"] = {r["memory_type"]: r["c"] for r in tp_rows}
-
-            # --- confidence / importance aggregates -------------------------
-            agg_row = await conn.execute_fetchone(
-                f"SELECT AVG(COALESCE(confidence,0)), AVG(COALESCE(importance,0)) FROM memories {where_clause}",
-                params,
-            )
-            stats["confidence_avg"] = round(agg_row[0], 3) if agg_row and agg_row[0] else 0.0
-            stats["importance_avg"] = round(agg_row[1], 2) if agg_row and agg_row[1] else 0.0
-
-            # --- temporal ----------------------------------------------------
-            tm_row = await conn.execute_fetchone(
-                f"SELECT MAX(created_at), MIN(created_at) FROM memories {where_clause}", params
-            )
-            stats["newest_memory_unix"] = tm_row[0] if tm_row else None
-            stats["oldest_memory_unix"] = tm_row[1] if tm_row else None
-
-            # --- link stats --------------------------------------------------
-            link_where = "WHERE m.workflow_id = ?" if workflow_id else ""
-            link_params = params
-            link_tot = await conn.execute_fetchone(
-                f"""
-                SELECT COUNT(*) AS cnt
-                FROM memory_links ml
-                JOIN memories m ON ml.source_memory_id = m.memory_id
-                {link_where}
-                """,
-                link_params,
-            )
-            stats["total_links"] = link_tot["cnt"] if link_tot else 0
-
-            l_rows = await conn.execute_fetchall(
-                f"""
-                SELECT ml.link_type, COUNT(*) AS c
-                FROM memory_links ml
-                JOIN memories m ON ml.source_memory_id = m.memory_id
-                {link_where}
-                GROUP BY ml.link_type
-                """,
-                link_params,
-            )
-            stats["links_by_type"] = {r["link_type"]: r["c"] for r in l_rows}
-
-            # --- tag stats (top-5) ------------------------------------------
-            tag_where = "WHERE wt.workflow_id = ?" if workflow_id else ""
-            tag_rows = await conn.execute_fetchall(
-                f"""
-                SELECT t.name, COUNT(*) AS c
-                FROM tags t
-                JOIN workflow_tags wt ON t.tag_id = wt.tag_id
-                {tag_where}
-                GROUP BY t.tag_id
-                ORDER BY c DESC
-                LIMIT 5
-                """,
-                params,
-            )
-            stats["top_workflow_tags"] = {r["name"]: r["c"] for r in tag_rows}
-
-            # --- workflow status break-down (global only) -------------------
-            if not workflow_id:
-                wf_rows = await conn.execute_fetchall(
-                    "SELECT status, COUNT(*) AS c FROM workflows GROUP BY status"
-                )
-                stats["workflows_by_status"] = {r["status"]: r["c"] for r in wf_rows}
-
-        stats["success"] = True
-        stats["processing_time"] = time.time() - start_time
-        logger.info(
-            f"Computed memory statistics for scope: {stats['scope']}", emoji_key="bar_chart"
+        # Add warnings to the context_package itself if it's otherwise "successful"
+        assembled["assembly_warnings"] = errors  # Add to the package being returned
+        # Also add to the top-level error_message for client visibility if some data is missing
+        resp["error_message"] = f"Context package assembled with warnings: {'; '.join(errors)}"
+        logger.warning(
+            f"get_rich_context_package for {workflow_id} completed with warnings: {errors}"
         )
-        return stats
+    else:
+        logger.info(f"get_rich_context_package for {workflow_id} succeeded cleanly.")
 
-    except Exception as exc:
-        logger.error(f"Failed to compute statistics: {exc}", exc_info=True)
-        raise ToolError(f"Failed to compute statistics: {exc}") from exc
+    return resp
 
 
 def _mermaid_escape(text: str) -> str:
@@ -13963,7 +13880,7 @@ async def generate_workflow_report(
 
     try:
         # -------- READ-ONLY data hydration ------------
-        # We open a read-only snapshot explicitly; 
+        # We open a read-only snapshot explicitly;
         async with DBConnection(db_path).transaction(readonly=True) as _:
             workflow_data = await get_workflow_details(
                 workflow_id=workflow_id,
@@ -14073,14 +13990,16 @@ async def generate_workflow_report(
             "format": report_format_lower,
             "style_used": style_lower if report_format_lower in ["markdown", "html"] else None,
             "generated_at": to_iso_z(datetime.now(timezone.utc).timestamp()),
-            "success": True,
-            "processing_time": time.time() - start_time,
         }
         logger.info(
             f"Generated {report_format_lower} report (style: {style_lower if report_format_lower in ['markdown', 'html'] else 'N/A'}) for workflow {workflow_id}",
             emoji_key="newspaper",
         )
-        return result
+        return {
+            "success": True,
+            "data": result,
+            "processing_time": time.time() - start_time,
+        }
 
     except (ToolInputError, ToolError):
         raise
@@ -14089,97 +14008,6 @@ async def generate_workflow_report(
         raise ToolError(
             f"Failed to generate workflow report due to an unexpected error: {e}"
         ) from e
-
-
-# --- 20. Visualization ---
-@with_tool_metrics
-@with_error_handling
-async def visualize_reasoning_chain(
-    thought_chain_id: str,
-    output_format: str = "mermaid",  # 'mermaid' | 'json'
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Produce a Mermaid diagram or hierarchical JSON for a single thought-chain.
-
-    Functionality unchanged; the only difference is that data retrieval now
-    runs inside a **read-only snapshot** using the new DBConnection helper.
-    """
-    # ───────────────── input validation ─────────────────
-    if not thought_chain_id:
-        raise ToolInputError("Thought chain ID required.", param_name="thought_chain_id")
-
-    valid_formats = {"mermaid", "json"}
-    output_format_lc = (output_format or "mermaid").lower()
-    if output_format_lc not in valid_formats:
-        raise ToolInputError(
-            f"Invalid format. Use one of: {sorted(valid_formats)}",
-            param_name="output_format",
-        )
-
-    t0 = time.time()
-
-    try:
-        # ─────────────── read-only data fetch ───────────────
-        async with DBConnection(db_path).transaction(readonly=True):
-            thought_chain_data = await get_thought_chain(thought_chain_id, db_path=db_path)
-
-        if not thought_chain_data.get("success"):
-            raise ToolError(
-                f"Failed to retrieve thought chain {thought_chain_id} for visualization."
-            )
-
-        # ─────────────── generate visualisation ─────────────
-        visual: str | None = None
-
-        if output_format_lc == "mermaid":
-            visual = await _generate_thought_chain_mermaid(thought_chain_data)
-
-        else:  # json
-            structured = {
-                k: v for k, v in thought_chain_data.items() if k not in {"success", "thoughts"}
-            }
-            child_map: Dict[str | None, list[dict]] = defaultdict(list)
-            for th in thought_chain_data.get("thoughts", []):
-                child_map[th.get("parent_thought_id")].append(th)
-
-            def build(nodes: list[dict]) -> list[dict]:
-                tree = []
-                for node in nodes:
-                    n = dict(node)
-                    kids = child_map.get(node["thought_id"])
-                    if kids:
-                        n["children"] = build(kids)
-                    tree.append(n)
-                return tree
-
-            structured["thought_tree"] = build(child_map.get(None, []))
-            visual = json.dumps(structured, indent=2)
-
-        if visual is None:
-            raise ToolError(
-                f"Failed to generate visualization content for format '{output_format_lc}'."
-            )
-
-        result = {
-            "thought_chain_id": thought_chain_id,
-            "title": thought_chain_data.get("title", "Thought Chain"),
-            "visualization": visual,
-            "format": output_format_lc,
-            "success": True,
-            "processing_time": time.time() - t0,
-        }
-        logger.info(
-            f"Generated {output_format_lc} visualization for thought chain {thought_chain_id}",
-            emoji_key="projector",
-        )
-        return result
-
-    except (ToolInputError, ToolError):
-        raise
-    except Exception as exc:
-        logger.error(f"Error visualizing thought chain {thought_chain_id}: {exc}", exc_info=True)
-        raise ToolError(f"Failed to visualize thought chain: {exc}") from exc
 
 
 async def _generate_professional_report(workflow: Dict[str, Any], include_details: bool) -> str:
@@ -14774,273 +14602,61 @@ async def _generate_memory_network_mermaid(
 
 @with_tool_metrics
 @with_error_handling
-async def visualize_memory_network(
-    workflow_id: Optional[str] = None,
-    center_memory_id: Optional[str] = None,
-    depth: int = 1,
-    max_nodes: int = 30,
-    memory_level: Optional[str] = None,
-    memory_type: Optional[str] = None,
-    output_format: str = "mermaid",
-    db_path: str = agent_memory_config.db_path,
-) -> Dict[str, Any]:
-    """
-    Generates a Mermaid diagram of the memory graph.  All original behaviour,
-    parameters, and return shape are preserved exactly; the sole change is that
-    the query block is now executed inside a read-only snapshot transaction
-    (`DBConnection.transaction(readonly=True)`)
-    """
-    # ------------- validation (unchanged) -------------
-    if not workflow_id and not center_memory_id:
-        raise ToolInputError(
-            "Either workflow_id or center_memory_id must be provided.", param_name="workflow_id"
-        )
-    if output_format.lower() != "mermaid":
-        raise ToolInputError(
-            "Currently only 'mermaid' format is supported.", param_name="output_format"
-        )
-    if depth < 0:
-        raise ToolInputError("Depth cannot be negative.", param_name="depth")
-    if max_nodes <= 0:
-        raise ToolInputError("Max nodes must be positive.", param_name="max_nodes")
-
-    start_time = time.time()
-    selected_memory_ids: set[str] = set()
-    memories_data: dict[str, Any] = {}
-    links_data: list[dict[str, Any]] = []
-
-    try:
-        # ---------- read-only snapshot ----------
-        async with DBConnection(db_path).transaction(readonly=True) as conn:
-            # --- 1. Initial memory selection (unchanged) ---
-            target_workflow_id = workflow_id
-            if center_memory_id:
-                async with conn.execute(
-                    "SELECT workflow_id FROM memories WHERE memory_id = ?", (center_memory_id,)
-                ) as cursor:
-                    center_row = await cursor.fetchone()
-                    if not center_row:
-                        raise ToolInputError(
-                            f"Center memory {center_memory_id} not found.",
-                            param_name="center_memory_id",
-                        )
-                    if not target_workflow_id:
-                        target_workflow_id = center_row["workflow_id"]
-                    elif target_workflow_id != center_row["workflow_id"]:
-                        raise ToolInputError(
-                            f"Center memory {center_memory_id} does not belong to workflow {target_workflow_id}.",
-                            param_name="center_memory_id",
-                        )
-
-                queue, visited = {center_memory_id}, set()
-                for current_depth in range(depth + 1):
-                    if len(selected_memory_ids) >= max_nodes:
-                        break
-                    next_queue: set[str] = set()
-                    ids_to_query = list(queue - visited)
-                    if not ids_to_query:
-                        break
-                    visited.update(ids_to_query)
-                    for node_id in ids_to_query:
-                        if len(selected_memory_ids) < max_nodes:
-                            selected_memory_ids.add(node_id)
-                        else:
-                            break
-                    if current_depth < depth and len(selected_memory_ids) < max_nodes:
-                        placeholders = ", ".join("?" * len(ids_to_query))
-                        neighbor_query = (
-                            f"SELECT target_memory_id AS neighbor_id FROM memory_links "
-                            f"WHERE source_memory_id IN ({placeholders}) "
-                            f"UNION "
-                            f"SELECT source_memory_id AS neighbor_id FROM memory_links "
-                            f"WHERE target_memory_id IN ({placeholders})"
-                        )
-                        async with conn.execute(neighbor_query, ids_to_query * 2) as cursor:
-                            async for row in cursor:
-                                if row["neighbor_id"] not in visited:
-                                    next_queue.add(row["neighbor_id"])
-                    queue = next_queue
-            else:
-                if not target_workflow_id:
-                    raise ToolInputError(
-                        "Workflow ID is required when not specifying a center memory.",
-                        param_name="workflow_id",
-                    )
-                filter_where = ["workflow_id = ?"]
-                params: list[Any] = [target_workflow_id]
-                if memory_level:
-                    filter_where.append("memory_level = ?")
-                    params.append(memory_level.lower())
-                if memory_type:
-                    filter_where.append("memory_type = ?")
-                    params.append(memory_type.lower())
-                now_unix = int(time.time())
-                filter_where.append("(ttl = 0 OR created_at + ttl > ?)")
-                params.append(now_unix)
-                where_sql = " AND ".join(filter_where)
-                query = (
-                    "SELECT memory_id "
-                    "FROM memories "
-                    f"WHERE {where_sql} "
-                    "ORDER BY compute_memory_relevance("
-                    "    importance, confidence, created_at, access_count, last_accessed"
-                    ") DESC "
-                    "LIMIT ?"
-                )
-                params.append(max_nodes)
-
-                # Ensure UDFs are registered before using compute_memory_relevance
-                await _ensure_udfs_registered(conn)
-
-                async with conn.execute(query, params) as cursor:
-                    selected_memory_ids = {row["memory_id"] for row in await cursor.fetchall()}
-
-            # --- early-exit branches & rest of logic (unchanged) ---
-            if not selected_memory_ids:
-                logger.info("No memories selected for visualization based on criteria.")
-                return {
-                    "workflow_id": target_workflow_id,
-                    "center_memory_id": center_memory_id,
-                    "visualization": "```mermaid\ngraph TD\n    NoNodes[No memories found]\n```",
-                    "node_count": 0,
-                    "link_count": 0,
-                    "format": "mermaid",
-                    "success": True,
-                    "processing_time": time.time() - start_time,
-                }
-
-            fetch_ids = list(selected_memory_ids)
-            placeholders = ", ".join("?" * len(fetch_ids))
-            details_query = f"SELECT * FROM memories WHERE memory_id IN ({placeholders})"
-            async with conn.execute(details_query, fetch_ids) as cursor:
-                async for row in cursor:
-                    mem_data = dict(row)
-                    if center_memory_id:
-                        ok = True
-                        if memory_level and mem_data.get("memory_level") != memory_level.lower():
-                            ok = False
-                        if memory_type and mem_data.get("memory_type") != memory_type.lower():
-                            ok = False
-                        if ok or mem_data["memory_id"] == center_memory_id:
-                            memories_data[mem_data["memory_id"]] = mem_data
-                    else:
-                        memories_data[mem_data["memory_id"]] = mem_data
-            final_selected_ids = set(memories_data)
-
-            if center_memory_id and center_memory_id not in final_selected_ids:
-                if center_memory_id in memories_data:
-                    final_selected_ids.add(center_memory_id)
-
-            if not final_selected_ids:
-                logger.info("No memories remained after applying filters for visualization.")
-                return {
-                    "workflow_id": target_workflow_id,
-                    "center_memory_id": center_memory_id,
-                    "visualization": "```mermaid\ngraph TD\n    NoNodes[No memories match filters]\n```",
-                    "node_count": 0,
-                    "link_count": 0,
-                    "format": "mermaid",
-                    "success": True,
-                    "processing_time": time.time() - start_time,
-                }
-
-            final_ids_list = list(final_selected_ids)
-            placeholders = ", ".join("?" * len(final_ids_list))
-            links_query = (
-                "SELECT * FROM memory_links "
-                f"WHERE source_memory_id IN ({placeholders}) "
-                f"AND target_memory_id IN ({placeholders})"
-            )
-            async with conn.execute(links_query, final_ids_list * 2) as cursor:
-                links_data = [dict(row) for row in await cursor.fetchall()]
-
-        # --- diagram generation & return (unchanged) ---
-        mermaid_string = await _generate_memory_network_mermaid(
-            list(memories_data.values()), links_data, center_memory_id
-        )
-        processing_time = time.time() - start_time
-        node_count, link_count = len(memories_data), len(links_data)
-        logger.info(
-            f"Generated memory network visualization ({node_count} nodes, {link_count} links) for workflow {target_workflow_id}",
-            emoji_key="network",
-        )
-        return {
-            "workflow_id": target_workflow_id,
-            "center_memory_id": center_memory_id,
-            "visualization": mermaid_string,
-            "node_count": node_count,
-            "link_count": link_count,
-            "format": "mermaid",
-            "success": True,
-            "processing_time": processing_time,
-        }
-
-    except ToolInputError:
-        raise
-    except Exception as e:
-        logger.error(f"Error visualizing memory network: {e}", exc_info=True)
-        raise ToolError(f"Failed to visualize memory network: {e}") from e
-
-
-@with_tool_metrics
-@with_error_handling
 async def vector_similarity(
     vec_a: List[float],
     vec_b: List[float],
     workflow_id: Optional[str] = None,
-    db_path: str = agent_memory_config.db_path
+    db_path: str = agent_memory_config.db_path,
 ) -> Dict[str, Any]:
     """
     Calculate cosine similarity between two provided vectors.
-    
+
     Args:
         vec_a: First vector
-        vec_b: Second vector  
+        vec_b: Second vector
         workflow_id: Optional workflow context for logging
         db_path: Path to database
-        
+
     Returns:
         Dict containing cosine similarity score
     """
     start_time = time.time()
-    
+
     # Input validation
     if not vec_a or not vec_b:
         raise ToolInputError("Both vectors must be non-empty lists")
-    
+
     if len(vec_a) != len(vec_b):
         raise ToolInputError(f"Vector dimensions must match: {len(vec_a)} vs {len(vec_b)}")
-    
+
     if not all(isinstance(x, (int, float)) for x in vec_a + vec_b):
         raise ToolInputError("All vector elements must be numeric")
-    
+
     try:
         # Calculate cosine similarity
         dot_product = sum(a * b for a, b in zip(vec_a, vec_b, strict=False))
         norm_a = math.sqrt(sum(a * a for a in vec_a))
         norm_b = math.sqrt(sum(b * b for b in vec_b))
-        
+
         if norm_a == 0 or norm_b == 0:
             similarity = 0.0
         else:
             similarity = dot_product / (norm_a * norm_b)
-        
+
         processing_time = time.time() - start_time
-        
+
         if workflow_id:
             logger.info(f"Calculated vector similarity {similarity:.4f} for workflow {workflow_id}")
-        
+
         return {
-            "success": True,
-            "data": {
-                "cosine_similarity": float(similarity)
-            },
-            "processing_time": processing_time
+            "data": {"cosine_similarity": float(similarity)},
+            "processing_time": processing_time,
         }
-        
+
     except Exception as e:
         logger.error(f"Error calculating vector similarity: {str(e)}")
         raise ToolError(f"Failed to calculate vector similarity: {str(e)}") from e
+
 
 # ======================================================
 # Exports
@@ -15084,5 +14700,12 @@ __all__ = [
     "get_rich_context_package",
     "get_goal_details",
     "create_goal",
-    "vector_similarity"
+    "vector_similarity",
+    "record_artifact",
+    "get_artifact_by_id",
+    "get_similar_memories",
+    "query_goals",
+    "consolidate_memories",
+    "diagnose_file_access_issues",
+    "generate_workflow_report",
 ]

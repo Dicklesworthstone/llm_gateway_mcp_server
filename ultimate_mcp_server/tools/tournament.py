@@ -1,7 +1,7 @@
 """Tournament tools for Ultimate MCP Server."""
 from typing import Any, Dict, List, Optional
 
-from mcp.server.fastmcp.exceptions import ToolError
+from ultimate_mcp_server.exceptions import ToolError
 
 from ultimate_mcp_server.core.models.tournament import (
     CancelTournamentInput,
