@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/dicklesworthstone-ultimate-mcp-server-badge.png)](https://mseep.ai/app/dicklesworthstone-ultimate-mcp-server)
+
 # 🧠 Ultimate MCP Server
 
 <div align="center">
